@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOLMATE — Chess · Yield · Skill · Solana</title>
+  <meta name="description" content="Stake SOL before every match. Yield accrues during gameplay. Winners claim both pools — your principal is never at risk." />
+
+  <!-- React + ReactDOM -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel standalone (transpiles JSX in-browser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #06070e; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ═══════════════════════════════════════════════════════
+       CONSTANTS & CONFIG
+    ═══════════════════════════════════════════════════════ */
+    const SOL_PRICE = 200;
+    const STARTING_BALANCE = 1.0;
+    const APY = 0.085;
+    const FEE = 0.03;
+    const YEAR_SEC = 365 * 24 * 3600;
+    const STORAGE_KEY = "solmate_save";
+
+    /* ═══════════════════════════════════════════════════════
+       PERSISTENCE
+    ═══════════════════════════════════════════════════════ */
+    const saveState = (data) => {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    };
+    const loadState = () => {
+      try {
+        const s = localStorage.getItem(STORAGE_KEY);
+        return s ? JSON.parse(s) : null;
+      } catch(e) { return null; }
+    };
+    const clearState = () => {
+      try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    };
+
+    /* ═══════════════════════════════════════════════════════
+       HELPERS
+    ═══════════════════════════════════════════════════════ */
+    const calcYield = (sol, sec) => sol * APY * (sec / YEAR_SEC);
+    const fmtSOL = (n, d = 5) => Math.abs(n).toFixed(d);
+    const fmtUSD = (sol) => (Math.abs(sol) * SOL_PRICE).toFixed(2);
+    const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const shortAddr = (a) => a ? `${a.slice(0, 4)}...${a.slice(-4)}` : "";
+    const randAddr = () => {
+      const ch = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      return Array.from({length:44}, ()=>ch[Math.floor(Math.random()*ch.length)]).join("");
+    };
+
+    /* ═══════════════════════════════════════════════════════
+       CHESS ENGINE
+    ═══════════════════════════════════════════════════════ */
+    const G = {
+      wK:"♔",wQ:"♕",wR:"♖",wB:"♗",wN:"♘",wP:"♙",
+      bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"
+    };
+    const FILES = "abcdefgh";
+
+    function freshBoard() {
+      const b = Array(8).fill(null).map(() => Array(8).fill(null));
+      const back = ["R","N","B","Q","K","B","N","R"];
+      for (let c = 0; c < 8; c++) {
+        b[0][c] = {s:"b",t:back[c]};
+        b[1][c] = {s:"b",t:"P"};
+        b[6][c] = {s:"w",t:"P"};
+        b[7][c] = {s:"w",t:back[c]};
+      }
+      return b;
+    }
+
+    function getMoves(board, r, c) {
+      const p = board[r][c]; if (!p) return [];
+      const {s,t} = p, opp = s==="w"?"b":"w", moves = [];
+      const add = (tr, tc) => {
+        if (tr<0||tr>7||tc<0||tc>7) return false;
+        const tgt = board[tr][tc];
+        if (tgt && tgt.s===s) return false;
+        moves.push([tr,tc]); return !tgt;
+      };
+      if (t==="P") {
+        const d = s==="w"?-1:1, st = s==="w"?6:1;
+        if (r+d>=0&&r+d<=7&&!board[r+d][c]) {
+          moves.push([r+d,c]);
+          if (r===st&&!board[r+2*d][c]) moves.push([r+2*d,c]);
+        }
+        [-1,1].forEach(dc => {
+          if (c+dc>=0&&c+dc<=7&&r+d>=0&&r+d<=7) {
+            const tgt = board[r+d][c+dc];
+            if (tgt&&tgt.s===opp) moves.push([r+d,c+dc]);
+          }
+        });
+      }
+      if (t==="R"||t==="Q") [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{for(let i=1;i<8;i++)if(!add(r+dr*i,c+dc*i))break;});
+      if (t==="B"||t==="Q") [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>{for(let i=1;i<8;i++)if(!add(r+dr*i,c+dc*i))break;});
+      if (t==="N") [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>add(r+dr,c+dc));
+      if (t==="K") [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc])=>add(r+dr,c+dc));
+      return moves;
+    }
+
+    function applyMove(board, fr, fc, tr, tc) {
+      const nb = board.map(r => [...r]);
+      const p = nb[fr][fc];
+      nb[tr][tc] = p; nb[fr][fc] = null;
+      if (p.t==="P"&&tr===0) nb[tr][tc] = {s:"w",t:"Q"};
+      if (p.t==="P"&&tr===7) nb[tr][tc] = {s:"b",t:"Q"};
+      return nb;
+    }
+
+    function hasMoves(board, side) {
+      for (let r=0;r<8;r++) for (let c=0;c<8;c++)
+        if (board[r][c]?.s===side && getMoves(board,r,c).length>0) return true;
+      return false;
+    }
+
+    function botMove(board) {
+      const moves = [];
+      for (let r=0;r<8;r++) for (let c=0;c<8;c++)
+        if (board[r][c]?.s==="b") getMoves(board,r,c).forEach(([tr,tc])=>moves.push([r,c,tr,tc]));
+      if (!moves.length) return null;
+      const caps = moves.filter(m => board[m[2]][m[3]]?.s==="w");
+      return caps.length&&Math.random()<0.7
+        ? caps[Math.floor(Math.random()*caps.length)]
+        : moves[Math.floor(Math.random()*moves.length)];
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       STYLES
+    ═══════════════════════════════════════════════════════ */
+    const C = {
+      bg:"#06070e", s1:"#0b0d1a", s2:"#101320", s3:"#161928",
+      green:"#00e5a0", green2:"#00ffb3", red:"#ff3355", gold:"#f0b840",
+      blue:"#4488ff", text:"#e8eaf5", muted:"rgba(232,234,245,0.42)",
+      border:"rgba(0,229,160,0.18)", border2:"rgba(232,234,245,0.07)",
+    };
+
+    const css = `
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#06070e;overflow-x:hidden;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+    @keyframes glow{0%,100%{box-shadow:0 0 15px rgba(0,229,160,0.15)}50%{box-shadow:0 0 35px rgba(0,229,160,0.45)}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideRight{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    @keyframes winBurst{0%{transform:scale(1)}40%{transform:scale(1.15)}100%{transform:scale(1)}}
+    @keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes scanPulse{0%,100%{opacity:0.3}50%{opacity:0.7}}
+    @keyframes yieldTick{0%,100%{color:#00e5a0}50%{color:#00ffb3}}
+    .btn-base{position:relative;overflow:hidden;border:none;cursor:pointer;
+      font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:0.1em;
+      text-transform:uppercase;transition:all 0.2s cubic-bezier(0.16,1,0.3,1);}
+    .btn-base:active{transform:scale(0.95)!important;}
+    .btn-base::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);
+      transition:background 0.2s;}
+    .btn-base:hover::before{background:rgba(255,255,255,0.07);}
+    .sq-cell{transition:background 0.1s,transform 0.1s;cursor:pointer;}
+    .sq-cell:hover{transform:scale(1.04);z-index:3;}
+    .scroll-thin::-webkit-scrollbar{width:3px;}
+    .scroll-thin::-webkit-scrollbar-track{background:transparent;}
+    .scroll-thin::-webkit-scrollbar-thumb{background:rgba(0,229,160,0.3);border-radius:2px;}
+    @media(max-width:700px){
+      .lobby-grid{grid-template-columns:1fr!important;}
+      .game-grid{grid-template-columns:1fr!important;}
+      .side-col{display:none!important;}
+      .result-card{padding:1.2rem!important;}
+      .hero-title{font-size:2.4rem!important;}
+      .wallet-grid{grid-template-columns:1fr 1fr!important;}
+      .stat-grid{grid-template-columns:1fr 1fr!important;}
+      .board-wrap{width:100%!important;}
+    }
+    @media(max-width:420px){
+      .wallet-grid{grid-template-columns:1fr!important;}
+      .stat-grid{grid-template-columns:1fr 1fr 1fr!important;}
+    }
+    `;
+
+    /* ═══════════════════════════════════════════════════════
+       MAIN APP
+    ═══════════════════════════════════════════════════════ */
+    function Solmate() {
+      useEffect(() => {
+        const st = document.createElement("style");
+        st.textContent = css;
+        document.head.appendChild(st);
+        return () => { try { document.head.removeChild(st); } catch(e){} };
+      }, []);
+
+      /* ── SCREEN ── */
+      const [screen, setScreen] = useState("land");
+
+      /* ── TOAST ── */
+      const [toast, setToast] = useState(null);
+      const toastTimer = useRef(null);
+      const showToast = useCallback((msg, type="info") => {
+        clearTimeout(toastTimer.current);
+        setToast({msg,type});
+        toastTimer.current = setTimeout(() => setToast(null), 3000);
+      }, []);
+
+      /* ── WALLET ── */
+      const [wallet, setWallet] = useState(null);
+
+      /* ── PLAYER DATA (all persisted) ── */
+      const [balance, setBalance] = useState(STARTING_BALANCE);
+      const [elo, setElo] = useState(1200);
+      const [wins, setWins] = useState(0);
+      const [losses, setLosses] = useState(0);
+      const [draws, setDraws] = useState(0);
+      const [streak, setStreak] = useState(0);
+      const [mult, setMult] = useState(1.0);
+      const [totalYieldEarned, setTotalYieldEarned] = useState(0);
+      const [history, setHistory] = useState([]);
+
+      /* ── MATCH CONFIG ── */
+      const [stakeAmt, setStakeAmt] = useState(0.1);
+      const [mode, setMode] = useState({name:"Rapid",dur:600,label:"10+0",icon:"🧠"});
+
+      /* ── GAME STATE ── */
+      const [board, setBoard] = useState(freshBoard());
+      const [sel, setSel] = useState(null);
+      const [hints, setHints] = useState([]);
+      const [lastMv, setLastMv] = useState(null);
+      const [myTurn, setMyTurn] = useState(true);
+      const [liveYield, setLiveYield] = useState(0);
+      const [myTime, setMyTime] = useState(600);
+      const [oppTime, setOppTime] = useState(600);
+      const [moveLog, setMoveLog] = useState([]);
+      const [matchId, setMatchId] = useState("");
+      const [oppElo, setOppElo] = useState(1200);
+      const [result, setResult] = useState(null);
+
+      /* ── REFS (interval-safe) ── */
+      const boardR = useRef(freshBoard());
+      const myTurnR = useRef(true);
+      const overR = useRef(false);
+      const yieldR = useRef(0);
+      const multR = useRef(1.0);
+      const stakeR = useRef(0.1);
+      const myTimeR = useRef(600);
+      const oppTimeR = useRef(600);
+      const clockI = useRef(null);
+      const yieldI = useRef(null);
+      const logR = useRef([]);
+      const moveCountR = useRef(0);
+      const startR = useRef(0);
+      const eloR = useRef(1200);
+      const streakR = useRef(0);
+      const balanceR = useRef(STARTING_BALANCE);
+      const totalYR = useRef(0);
+      const oppEloR = useRef(1200);
+      const modeR = useRef({dur:600});
+
+      /* ══════════════════════════════════════
+         LOAD SAVED STATE
+      ══════════════════════════════════════ */
+      useEffect(() => {
+        const saved = loadState();
+        if (saved) {
+          if (saved.wallet) setWallet(saved.wallet);
+          const bal = saved.balance ?? STARTING_BALANCE;
+          setBalance(bal); balanceR.current = bal;
+          const e = saved.elo ?? 1200;
+          setElo(e); eloR.current = e;
+          setWins(saved.wins ?? 0);
+          setLosses(saved.losses ?? 0);
+          setDraws(saved.draws ?? 0);
+          const st = saved.streak ?? 0;
+          setStreak(st); streakR.current = st;
+          const m = saved.mult ?? 1.0;
+          setMult(m); multR.current = m;
+          const ty = saved.totalYield ?? 0;
+          setTotalYieldEarned(ty); totalYR.current = ty;
+          setHistory(saved.history ?? []);
+          if (saved.wallet) setScreen("lobby");
+        }
+      }, []);
+
+      /* ══════════════════════════════════════
+         AUTO-SAVE whenever key stats change
+      ══════════════════════════════════════ */
+      useEffect(() => {
+        if (!wallet) return;
+        saveState({
+          wallet, balance, elo, wins, losses, draws,
+          streak, mult, totalYield: totalYieldEarned, history
+        });
+      }, [wallet, balance, elo, wins, losses, draws, streak, mult, totalYieldEarned, history]);
+
+      /* ══════════════════════════════════════
+         WALLET CONNECT
+      ══════════════════════════════════════ */
+      const connectWallet = async (name) => {
+        showToast(`Connecting ${name}...`);
+        let addr = randAddr();
+        try {
+          let prov = null;
+          if (name==="Phantom") prov = window.solana || window.phantom?.solana;
+          if (name==="Backpack") prov = window.backpack;
+          if (name==="Solflare") prov = window.solflare;
+          if (prov) { const r = await prov.connect(); addr = r.publicKey.toString(); }
+        } catch(e) {}
+
+        const w = {name, addr};
+        setWallet(w);
+        const saved = loadState();
+        if (!saved?.balance) {
+          setBalance(STARTING_BALANCE);
+          balanceR.current = STARTING_BALANCE;
+        }
+        showToast(`${name} connected ✓`, "success");
+        setTimeout(() => setScreen("lobby"), 600);
+      };
+
+      /* ══════════════════════════════════════
+         FIND MATCH
+      ══════════════════════════════════════ */
+      const findMatch = () => {
+        if (stakeAmt > balanceR.current) { showToast("Insufficient balance","error"); return; }
+        const mid = "SM-" + Math.floor(Math.random()*90000+10000);
+        const opp = Math.max(400, eloR.current + Math.floor(Math.random()*200-100));
+        setMatchId(mid);
+        setOppElo(opp); oppEloR.current = opp;
+        stakeR.current = stakeAmt;
+        modeR.current = mode;
+        setScreen("matchmaking");
+        showToast("Stake locked · Searching...", "info");
+        setTimeout(() => startGame(mid, opp), 2000 + Math.random()*1000);
+      };
+
+      /* ══════════════════════════════════════
+         START GAME
+      ══════════════════════════════════════ */
+      const startGame = (mid, opp) => {
+        const nb = freshBoard();
+        boardR.current = nb; setBoard(nb);
+        setSel(null); setHints([]); setLastMv(null);
+        myTurnR.current = true; setMyTurn(true);
+        overR.current = false;
+        yieldR.current = 0; setLiveYield(0);
+        logR.current = []; moveCountR.current = 0; setMoveLog([]);
+        myTimeR.current = modeR.current.dur; oppTimeR.current = modeR.current.dur;
+        setMyTime(modeR.current.dur); setOppTime(modeR.current.dur);
+        multR.current = mult;
+        startR.current = Date.now();
+        setScreen("game");
+        showToast("♟ Match found! Game on.", "success");
+
+        clearInterval(yieldI.current);
+        yieldI.current = setInterval(() => {
+          if (overR.current) { clearInterval(yieldI.current); return; }
+          const tick = calcYield(stakeR.current * 2, 1);
+          yieldR.current = parseFloat((yieldR.current + tick).toFixed(8));
+          setLiveYield(parseFloat((yieldR.current).toFixed(6)));
+        }, 1000);
+
+        clearInterval(clockI.current);
+        clockI.current = setInterval(() => {
+          if (overR.current) { clearInterval(clockI.current); return; }
+          if (myTurnR.current) {
+            myTimeR.current = Math.max(0, myTimeR.current - 1);
+            setMyTime(myTimeR.current);
+            if (myTimeR.current === 0) resolveGame("loss", "timeout");
+          } else {
+            oppTimeR.current = Math.max(0, oppTimeR.current - 1);
+            setOppTime(oppTimeR.current);
+            if (oppTimeR.current === 0) resolveGame("win", "timeout");
+          }
+        }, 1000);
+      };
+
+      /* ══════════════════════════════════════
+         BOARD CLICK
+      ══════════════════════════════════════ */
+      const clickSquare = (r, c) => {
+        if (overR.current || !myTurnR.current) return;
+        const p = boardR.current[r][c];
+        if (sel) {
+          const [sr,sc] = sel;
+          if (hints.some(m => m[0]===r && m[1]===c)) {
+            doMove(sr, sc, r, c, "w");
+            setSel(null); setHints([]);
+            return;
+          }
+          setSel(null); setHints([]);
+        }
+        if (p?.s === "w") {
+          setSel([r,c]);
+          setHints(getMoves(boardR.current, r, c));
+        }
+      };
+
+      const doMove = (fr, fc, tr, tc, side) => {
+        const nb = applyMove(boardR.current, fr, fc, tr, tc);
+        boardR.current = nb;
+        setBoard(nb.map(r => [...r]));
+        setLastMv([fr,fc,tr,tc]);
+
+        const piece = nb[tr][tc];
+        const note = `${G[piece?.s+piece?.t]||""}${FILES[fc]}${8-fr}→${FILES[tc]}${8-tr}`;
+        if (side === "w") {
+          moveCountR.current++;
+          const entry = {num:moveCountR.current, w:note, b:""};
+          logR.current = [...logR.current, entry];
+        } else {
+          if (logR.current.length > 0) {
+            const last = {...logR.current[logR.current.length-1], b:note};
+            logR.current = [...logR.current.slice(0,-1), last];
+          }
+        }
+        setMoveLog([...logR.current]);
+
+        const oppSide = side==="w"?"b":"w";
+        if (!hasMoves(nb, oppSide)) {
+          resolveGame(side==="w"?"win":"loss", "checkmate"); return;
+        }
+
+        if (side === "w") {
+          myTurnR.current = false; setMyTurn(false);
+          setTimeout(() => {
+            if (overR.current) return;
+            const bm = botMove(boardR.current);
+            if (!bm) { resolveGame("win","no-moves"); return; }
+            doMove(bm[0],bm[1],bm[2],bm[3],"b");
+            myTurnR.current = true; setMyTurn(true);
+          }, 400 + Math.random()*600);
+        }
+      };
+
+      /* ══════════════════════════════════════
+         RESOLVE
+      ══════════════════════════════════════ */
+      const resolveGame = useCallback((type, reason="normal") => {
+        if (overR.current) return;
+        overR.current = true;
+        clearInterval(clockI.current);
+        clearInterval(yieldI.current);
+
+        const raw = yieldR.current;
+        const prevMult = multR.current;
+        const stake = stakeR.current;
+        const elapsed = Math.max(1, (Date.now() - startR.current) / 1000);
+
+        let earned = 0;
+        let newMult = prevMult;
+        let eloChange = 0;
+        let newStreak = streakR.current;
+        let newBalance = balanceR.current;
+        let newTotalYield = totalYR.current;
+
+        if (type === "win") {
+          earned = raw * prevMult * (1 - FEE);
+          newMult = Math.min(3.0, prevMult + 0.10 + (streakR.current >= 2 ? 0.05 : 0));
+          eloChange = Math.floor(Math.random() * 15 + 8);
+          newStreak = streakR.current + 1;
+          newBalance = parseFloat((balanceR.current + earned).toFixed(6));
+          newTotalYield = parseFloat((totalYR.current + earned).toFixed(6));
+          setWins(w => w + 1);
+        } else if (type === "loss") {
+          earned = -raw;
+          newMult = Math.max(0.5, prevMult - 0.15);
+          eloChange = -(Math.floor(Math.random() * 12 + 5));
+          newStreak = 0;
+          newBalance = balanceR.current;
+          newTotalYield = Math.max(0, parseFloat((totalYR.current - raw).toFixed(6)));
+          setLosses(l => l + 1);
+        } else {
+          earned = (raw / 2) * (1 - FEE);
+          newMult = prevMult;
+          eloChange = 0;
+          newStreak = 0;
+          newBalance = parseFloat((balanceR.current + earned).toFixed(6));
+          newTotalYield = parseFloat((totalYR.current + earned).toFixed(6));
+          setDraws(d => d + 1);
+        }
+
+        const newElo = Math.max(100, eloR.current + eloChange);
+
+        balanceR.current = newBalance;
+        totalYR.current = newTotalYield;
+        multR.current = newMult;
+        eloR.current = newElo;
+        streakR.current = newStreak;
+
+        setBalance(newBalance);
+        setTotalYieldEarned(newTotalYield);
+        setMult(newMult);
+        setElo(newElo);
+        setStreak(newStreak);
+
+        const histEntry = {
+          type, opp:`Bot-${oppEloR.current}`, earned, mult:prevMult,
+          elo:newElo, stake, date: new Date().toLocaleDateString()
+        };
+        setHistory(h => {
+          const newH = [histEntry, ...h].slice(0, 50);
+          return newH;
+        });
+
+        setResult({type,reason,raw,earned,prevMult,newMult,newElo,eloChange,newStreak,stake,elapsed:Math.round(elapsed),newBalance,newTotalYield});
+        setTimeout(() => setScreen("result"), 700);
+      }, []);
+
+      /* ═════════════════════════════
+         GAME ACTIONS
+      ═════════════════════════════ */
+      const offerDraw = () => {
+        if (Math.random() < 0.4) { showToast("Draw accepted","success"); setTimeout(()=>resolveGame("draw","agreed"),300); }
+        else showToast("Opponent declined draw","info");
+      };
+      const resign = () => { showToast("You resigned","error"); setTimeout(()=>resolveGame("loss","resign"),400); };
+
+      const goHome = () => {
+        overR.current = true;
+        clearInterval(clockI.current); clearInterval(yieldI.current);
+        setScreen("lobby");
+      };
+
+      const resetProgress = () => {
+        if (!window.confirm("Reset all progress? This cannot be undone.")) return;
+        clearState();
+        setBalance(STARTING_BALANCE); balanceR.current = STARTING_BALANCE;
+        setElo(1200); eloR.current = 1200;
+        setWins(0); setLosses(0); setDraws(0);
+        setStreak(0); streakR.current = 0;
+        setMult(1.0); multR.current = 1.0;
+        setTotalYieldEarned(0); totalYR.current = 0;
+        setHistory([]);
+        showToast("Progress reset","info");
+      };
+
+      /* ═════════════════════════════
+         YIELD PREVIEW
+      ═════════════════════════════ */
+      const previewWin = calcYield(stakeAmt * 2, mode.dur) * mult * (1 - FEE);
+      const previewLoss = calcYield(stakeAmt * 2, mode.dur);
+
+      /* ═══════════════════════════════════════════════════════
+         UI COMPONENTS
+      ═══════════════════════════════════════════════════════ */
+      const Btn = ({children,onClick,variant="primary",style={},disabled=false,...rest}) => {
+        const styles = {
+          primary: {background:C.green,color:C.bg,padding:"0.75rem 1.6rem",fontSize:"0.78rem",
+            boxShadow:`0 0 30px rgba(0,229,160,0.2)`},
+          ghost: {background:"transparent",color:C.muted,padding:"0.65rem 1.2rem",
+            fontSize:"0.7rem",border:`1px solid ${C.border2}`},
+          danger: {background:"transparent",color:C.red,padding:"0.55rem 1rem",
+            fontSize:"0.65rem",border:`1px solid rgba(255,51,85,0.35)`},
+          success: {background:"rgba(0,229,160,0.08)",color:C.green,padding:"0.55rem 1rem",
+            fontSize:"0.65rem",border:`1px solid ${C.border}`},
+          gold: {background:"rgba(240,184,64,0.1)",color:C.gold,padding:"0.55rem 1rem",
+            fontSize:"0.65rem",border:`1px solid rgba(240,184,64,0.3)`},
+        };
+        return (
+          <button className="btn-base" onClick={disabled?undefined:onClick} disabled={disabled}
+            style={{...styles[variant],...style,opacity:disabled?0.4:1,...style}} {...rest}>
+            {children}
+          </button>
+        );
+      };
+
+      const Panel = ({children, style={}}) => (
+        <div style={{background:C.s1,border:`1px solid ${C.border2}`,padding:"1.2rem",...style}}>
+          {children}
+        </div>
+      );
+
+      const PHead = ({children}) => (
+        <div style={{fontSize:"0.5rem",letterSpacing:"0.35em",textTransform:"uppercase",
+          color:C.green,marginBottom:"1rem",paddingBottom:"0.5rem",
+          borderBottom:`1px solid ${C.border}`}}>
+          // {children}
+        </div>
+      );
+
+      const PRow = ({label,value,vc,sub}) => (
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+          padding:"0.3rem 0",borderBottom:`1px solid rgba(255,255,255,0.025)`,fontSize:"0.72rem"}}>
+          <span style={{color:C.muted}}>{label}</span>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",color:vc||C.text}}>{value}</div>
+            {sub&&<div style={{fontSize:"0.58rem",color:C.muted}}>{sub}</div>}
+          </div>
+        </div>
+      );
+
+      /* ═══════════════════════════════════════════════════════
+         SCREEN: LANDING
+      ═══════════════════════════════════════════════════════ */
+      if (screen === "land") return (
+        <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",
+          alignItems:"center",justifyContent:"center",padding:"2rem 1rem",position:"relative",
+          backgroundImage:`radial-gradient(ellipse 65% 55% at 50% 25%,rgba(0,229,160,0.06) 0%,transparent 70%),
+            linear-gradient(rgba(0,229,160,0.025) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(0,229,160,0.025) 1px,transparent 1px)`,
+          backgroundSize:"100% 100%,60px 60px,60px 60px",animation:"fadeIn 0.6s ease"}}>
+
+          <div style={{textAlign:"center",maxWidth:580,animation:"slideUp 0.7s ease"}}>
+            <div style={{fontSize:"4.5rem",animation:"float 3s ease-in-out infinite",
+              marginBottom:"0.5rem",filter:"drop-shadow(0 0 20px rgba(0,229,160,0.4))"}}>♟</div>
+            <div style={{fontFamily:"'Rajdhani',sans-serif",fontSize:"3rem",fontWeight:700,
+              color:C.green,letterSpacing:"0.1em",lineHeight:1,marginBottom:"0.2rem"}}>
+              SOLMATE
+            </div>
+            <div style={{fontSize:"0.6rem",letterSpacing:"0.4em",color:C.muted,
+              textTransform:"uppercase",marginBottom:"2.5rem"}}>
+              Chess · Yield · Skill · Solana
+            </div>
+
+            <div style={{fontFamily:"'Rajdhani',sans-serif",
+              fontSize:"clamp(1.8rem,5vw,2.6rem)",fontWeight:700,
+              lineHeight:1.1,marginBottom:"1rem"}}>
+              Skill is your <span style={{color:C.green}}>edge.</span><br/>
+              Win is your <span style={{color:C.green}}>yield.</span>
+            </div>
+            <p style={{color:C.muted,fontSize:"0.85rem",lineHeight:1.8,marginBottom:"2.5rem",
+              maxWidth:440,margin:"0 auto 2.5rem"}}>
+              Stake SOL before every match. Yield accrues during gameplay.
+              Winners claim both pools — your principal is never at risk.
+            </p>
+
+            <div className="wallet-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",
+              gap:"0.8rem",maxWidth:400,margin:"0 auto 1.5rem"}}>
+              {[["👻","Phantom","Recommended"],["🎒","Backpack","xNFT"],["🔆","Solflare","Mobile"]].map(([ico,name,sub])=>(
+                <div key={name} onClick={()=>connectWallet(name)}
+                  style={{background:C.s1,border:`1px solid ${C.border2}`,padding:"1.3rem 0.8rem",
+                    cursor:"pointer",textAlign:"center",transition:"all 0.2s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=C.green;e.currentTarget.style.background="rgba(0,229,160,0.05)";e.currentTarget.style.transform="translateY(-2px)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border2;e.currentTarget.style.background=C.s1;e.currentTarget.style.transform="translateY(0)";}}>
+                  <div style={{fontSize:"1.7rem",marginBottom:"0.4rem"}}>{ico}</div>
+                  <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:"0.8rem"}}>{name}</div>
+                  <div style={{fontSize:"0.58rem",color:C.muted,marginTop:"0.15rem"}}>{sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {loadState()?.wallet && (
+              <div style={{marginBottom:"1rem",padding:"0.6rem 1rem",background:"rgba(0,229,160,0.06)",
+                border:`1px solid ${C.border}`,fontSize:"0.68rem",color:C.green,
+                display:"inline-flex",alignItems:"center",gap:"0.5rem"}}>
+                💾 Saved progress detected — connect to resume
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",justifyContent:"center"}}>
+              {["No Capital Loss","On-Chain Verified","ELO Rated","Progress Saved","DAO Governed"].map(p=>(
+                <span key={p} style={{border:`1px solid ${C.border2}`,padding:"0.25rem 0.7rem",
+                  fontSize:"0.57rem",color:C.muted,letterSpacing:"0.07em"}}>{p}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+
+      /* ═══════════════════════════════════════════════════════
+         SCREEN: LOBBY
+      ═══════════════════════════════════════════════════════ */
+      if (screen === "lobby") return (
+        <div style={{minHeight:"100vh",background:C.bg,animation:"fadeIn 0.4s ease"}}>
+          <div style={{background:"rgba(6,7,14,0.95)",borderBottom:`1px solid ${C.border2}`,
+            padding:"0.8rem 1.5rem",display:"flex",alignItems:"center",
+            justifyContent:"space-between",position:"sticky",top:0,zIndex:100,
+            backdropFilter:"blur(20px)"}}>
+            <div style={{fontFamily:"'Rajdhani',sans-serif",fontSize:"1.2rem",fontWeight:700,color:C.green}}>
+              ♟ SOLMATE
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.7rem",flexWrap:"wrap"}}>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"0.65rem",
+                background:C.s1,border:`1px solid ${C.border2}`,padding:"0.3rem 0.7rem",
+                color:C.gold,display:"flex",flexDirection:"column",alignItems:"flex-end"}}>
+                <span>{balance.toFixed(4)} SOL</span>
+                <span style={{fontSize:"0.55rem",color:C.muted}}>${(balance*SOL_PRICE).toFixed(2)}</span>
+              </div>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"0.6rem",
+                background:C.s1,border:`1px solid ${C.border}`,padding:"0.3rem 0.7rem",
+                color:C.green,display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:C.green,animation:"pulse 2s infinite"}}/>
+                {shortAddr(wallet?.addr)}
+              </div>
+              <Btn variant="ghost" onClick={()=>setScreen("land")} style={{padding:"0.3rem 0.7rem",fontSize:"0.58rem"}}>
+                🏠 Home
+              </Btn>
+            </div>
+          </div>
+
+          <div style={{padding:"1.5rem 1rem",maxWidth:940,margin:"0 auto"}}>
+            <div className="lobby-grid" style={{display:"grid",gridTemplateColumns:"300px 1fr",gap:"1.2rem"}}>
+
+              {/* LEFT */}
+              <div>
+                <Panel style={{marginBottom:"1rem"}}>
+                  <PHead>Stake Setup</PHead>
+                  <PRow label="Balance" value={`${balance.toFixed(4)} SOL`}
+                    sub={`$${(balance*SOL_PRICE).toFixed(2)} USD`} vc={C.green}/>
+                  <PRow label="Vault APY" value="8.5%" vc={C.gold}/>
+                  <PRow label="Multiplier" value={`${mult.toFixed(2)}×`} vc={C.gold}/>
+
+                  <div style={{margin:"1rem 0"}}>
+                    <div style={{fontSize:"0.6rem",color:C.muted,marginBottom:"0.4rem",letterSpacing:"0.05em"}}>
+                      STAKE AMOUNT (SOL)
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem"}}>
+                      <input type="number" value={stakeAmt} min={0.01} max={balance} step={0.01}
+                        onChange={e=>setStakeAmt(Math.min(balance, Math.max(0.01, parseFloat(e.target.value)||0.01)))}
+                        style={{flex:1,background:C.s2,border:`1px solid ${C.border}`,color:C.text,
+                          padding:"0.6rem 0.8rem",fontSize:"0.95rem",fontFamily:"'JetBrains Mono',monospace",
+                          outline:"none"}}/>
+                      <div style={{fontSize:"0.6rem",color:C.muted,background:C.s2,
+                        border:`1px solid ${C.border2}`,padding:"0.6rem 0.6rem",whiteSpace:"nowrap"}}>
+                        ≈ ${(stakeAmt*SOL_PRICE).toFixed(2)}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:"0.4rem"}}>
+                      {[0.05,0.1,0.25,0.5].map(v=>(
+                        <button key={v} onClick={()=>setStakeAmt(Math.min(balance,v))}
+                          className="btn-base"
+                          style={{flex:1,padding:"0.3rem",background:stakeAmt===v?C.s3:C.s2,
+                            border:`1px solid ${stakeAmt===v?C.green:C.border2}`,
+                            color:stakeAmt===v?C.green:C.muted,fontSize:"0.62rem",
+                            fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",
+                            transition:"all 0.2s"}}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{background:C.s2,border:`1px solid ${C.border}`,
+                    padding:"0.9rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:"0.52rem",letterSpacing:"0.2em",textTransform:"uppercase",
+                      color:C.muted,marginBottom:"0.6rem"}}>YIELD ESTIMATE</div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.7rem",
+                      padding:"0.2rem 0"}}>
+                      <span style={{color:C.muted}}>Win → you earn</span>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",color:C.green}}>
+                        +{fmtSOL(previewWin)} SOL
+                        <span style={{fontSize:"0.6rem",color:C.muted}}> (${fmtUSD(previewWin)})</span>
+                      </span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.7rem",
+                      padding:"0.2rem 0"}}>
+                      <span style={{color:C.muted}}>Loss → yield lost</span>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",color:C.red}}>
+                        -{fmtSOL(previewLoss)} SOL
+                      </span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.7rem",
+                      padding:"0.25rem 0",marginTop:"0.3rem",borderTop:`1px solid ${C.border2}`}}>
+                      <span style={{color:C.green,fontWeight:700}}>Principal risk</span>
+                      <span style={{color:C.green,fontFamily:"'JetBrains Mono',monospace"}}>ZERO ✓</span>
+                    </div>
+                  </div>
+
+                  <Btn variant="primary" onClick={findMatch}
+                    style={{width:"100%",padding:"0.9rem",fontSize:"0.8rem",display:"block"}}>
+                    ⚡ Lock Stake &amp; Find Match
+                  </Btn>
+                </Panel>
+
+                <Panel>
+                  <PHead>Game Mode</PHead>
+                  {[{name:"Bullet",dur:60,label:"1+0",icon:"⚡"},{name:"Blitz",dur:180,label:"3+2",icon:"🔥"},{name:"Rapid",dur:600,label:"10+0",icon:"🧠"}].map(m=>(
+                    <div key={m.name} onClick={()=>setMode(m)}
+                      style={{display:"flex",alignItems:"center",gap:"0.9rem",padding:"0.8rem",
+                        marginBottom:"0.5rem",cursor:"pointer",
+                        background:mode.name===m.name?"rgba(0,229,160,0.06)":C.s2,
+                        border:`1px solid ${mode.name===m.name?C.green:C.border2}`,
+                        transition:"all 0.2s"}}
+                      onMouseEnter={e=>mode.name!==m.name&&(e.currentTarget.style.borderColor=C.border)}
+                      onMouseLeave={e=>mode.name!==m.name&&(e.currentTarget.style.borderColor=C.border2)}>
+                      <span style={{fontSize:"1.2rem"}}>{m.icon}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:"0.85rem"}}>{m.name}</div>
+                        <div style={{fontSize:"0.6rem",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>{m.label}</div>
+                      </div>
+                      {mode.name===m.name&&<span style={{color:C.green}}>✓</span>}
+                    </div>
+                  ))}
+                </Panel>
+              </div>
+
+              {/* RIGHT */}
+              <div>
+                <Panel style={{marginBottom:"1rem"}}>
+                  <PHead>Your Performance</PHead>
+
+                  <div className="stat-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",
+                    gap:"0.7rem",marginBottom:"1rem"}}>
+                    {[[wins,"Wins","#00e5a0"],[losses,"Losses","#ff3355"],[draws,"Draws","rgba(232,234,245,0.4)"]].map(([v,l,col])=>(
+                      <div key={l} style={{textAlign:"center",background:C.s2,
+                        border:`1px solid ${C.border2}`,padding:"0.9rem 0.5rem"}}>
+                        <div style={{fontFamily:"'Rajdhani',sans-serif",fontSize:"2rem",
+                          fontWeight:700,color:col,lineHeight:1}}>{v}</div>
+                        <div style={{fontSize:"0.55rem",letterSpacing:"0.12em",
+                          textTransform:"uppercase",color:C.muted,marginTop:"0.2rem"}}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{background:C.s2,border:`1px solid ${C.border}`,
+                    padding:"0.9rem",marginBottom:"0.8rem"}}>
+                    <div style={{fontSize:"0.5rem",letterSpacing:"0.22em",
+                      textTransform:"uppercase",color:C.muted,marginBottom:"0.5rem"}}>
+                      YIELD MULTIPLIER — {mult.toFixed(2)}×
+                    </div>
+                    <div style={{height:5,background:C.bg,borderRadius:2,marginBottom:"0.4rem",
+                      position:"relative",overflow:"hidden"}}>
+                      <div style={{position:"absolute",top:0,left:0,height:"100%",borderRadius:2,
+                        background:`linear-gradient(90deg,${C.green},${C.green2})`,
+                        width:`${Math.max(2,((mult-0.5)/2.5)*100)}%`,
+                        transition:"width 1s cubic-bezier(0.16,1,0.3,1)",
+                        boxShadow:`0 0 8px ${C.green}`}}/>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",
+                      fontSize:"0.58rem",color:C.muted}}>
+                      <span>0.5× min</span>
+                      <span>3.0× max</span>
+                    </div>
+                  </div>
+
+                  <PRow label="ELO Rating" value={elo}/>
+                  <PRow label="Win Streak" value={`${streak}${streak>=3?" 🔥":""}`} vc={C.gold}/>
+                  <PRow label="Total Yield Earned" value={`${totalYieldEarned.toFixed(5)} SOL`}
+                    sub={`$${(totalYieldEarned*SOL_PRICE).toFixed(4)} USD`} vc={C.green}/>
+                  <PRow label="Balance" value={`${balance.toFixed(4)} SOL`}
+                    sub={`$${(balance*SOL_PRICE).toFixed(2)} USD`} vc={C.gold}/>
+
+                  <div style={{marginTop:"0.8rem",display:"flex",gap:"0.5rem"}}>
+                    <Btn variant="ghost" onClick={resetProgress}
+                      style={{fontSize:"0.58rem",padding:"0.35rem 0.8rem",color:C.red,
+                        borderColor:"rgba(255,51,85,0.25)"}}>
+                      Reset Progress
+                    </Btn>
+                    <div style={{flex:1,fontSize:"0.58rem",color:C.muted,
+                      display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                      💾 Auto-saved
+                    </div>
+                  </div>
+                </Panel>
+
+                <Panel>
+                  <PHead>Match History ({history.length} matches)</PHead>
+                  {history.length === 0 && (
+                    <div style={{fontSize:"0.7rem",color:C.muted,textAlign:"center",padding:"1.5rem"}}>
+                      No matches yet — stake and play!
+                    </div>
+                  )}
+                  <div className="scroll-thin" style={{maxHeight:280,overflowY:"auto",
+                    display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                    {history.map((h,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:"0.7rem",
+                        padding:"0.5rem 0.7rem",background:C.s2,
+                        border:`1px solid ${C.border2}`,fontSize:"0.68rem",
+                        animation:"slideUp 0.3s ease"}}>
+                        <div style={{width:38,textAlign:"center",fontWeight:700,
+                          fontSize:"0.6rem",padding:"0.2rem 0.3rem",
+                          fontFamily:"'Rajdhani',sans-serif",letterSpacing:"0.05em",
+                          background:h.type==="win"?"rgba(0,229,160,0.12)":h.type==="loss"?"rgba(255,51,85,0.12)":"rgba(232,234,245,0.06)",
+                          color:h.type==="win"?C.green:h.type==="loss"?C.red:C.muted,
+                          border:`1px solid ${h.type==="win"?C.border:h.type==="loss"?"rgba(255,51,85,0.25)":C.border2}`}}>
+                          {h.type.toUpperCase()}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{color:C.muted}}>{h.opp}</div>
+                          <div style={{fontSize:"0.57rem",color:"rgba(232,234,245,0.25)",marginTop:"0.1rem"}}>{h.date}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"'JetBrains Mono',monospace",
+                            color:h.earned>=0?C.gold:C.red,fontSize:"0.7rem"}}>
+                            {h.earned>=0?"+":"-"}{fmtSOL(h.earned)} SOL
+                          </div>
+                          <div style={{fontSize:"0.56rem",color:C.muted}}>
+                            {h.mult.toFixed(2)}× mult
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+      /* ═══════════════════════════════════════════════════════
+         SCREEN: MATCHMAKING
+      ═══════════════════════════════════════════════════════ */
+      if (screen === "matchmaking") return (
+        <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",
+          justifyContent:"center",padding:"2rem",animation:"fadeIn 0.4s ease"}}>
+          <div style={{textAlign:"center",animation:"slideUp 0.5s ease"}}>
+            <div style={{width:72,height:72,border:`2px solid ${C.border}`,
+              borderTop:`2px solid ${C.green}`,borderRadius:"50%",
+              animation:"spin 0.9s linear infinite",margin:"0 auto 2rem",
+              boxShadow:`0 0 30px rgba(0,229,160,0.15)`}}/>
+            <div style={{fontFamily:"'Rajdhani',sans-serif",fontSize:"1.7rem",
+              fontWeight:700,marginBottom:"0.4rem",letterSpacing:"0.05em"}}>
+              FINDING OPPONENT
+            </div>
+            <div style={{color:C.muted,fontSize:"0.78rem",marginBottom:"2rem"}}>
+              Stake locked · Vault generating yield · Searching rated match
+            </div>
+            <div style={{display:"inline-flex",gap:"0",background:C.s1,
+              border:`1px solid ${C.border}`,marginBottom:"2rem",overflow:"hidden"}}>
+              {[[`${stakeAmt.toFixed(2)} SOL`,"Staked"],[mode.name,"Mode"],[`${elo}`,"Your ELO"]].map(([v,l],i)=>(
+                <div key={l} style={{textAlign:"center",padding:"1rem 1.8rem",
+                  borderRight:i<2?`1px solid ${C.border2}`:"none"}}>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",color:C.green,
+                    fontSize:"0.95rem"}}>{v}</div>
+                  <div style={{fontSize:"0.52rem",color:C.muted,letterSpacing:"0.18em",
+                    textTransform:"uppercase",marginTop:"0.2rem"}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            <div>
+              <Btn variant="ghost" onClick={()=>setScreen("lobby")} style={{padding:"0.6rem 1.5rem"}}>
+                Cancel
+              </Btn>
+            </div>
+          </div>
+        </div>
+      );
+
+      /* ═══════════════════════════════════════════════════════
+         SCREEN: GAME
+      ═══════════════════════════════════════════════════════ */
+      if (screen === "game") return (
+        <div style={{minHeight:"100vh",background:C.bg,padding:"0.8rem",animation:"fadeIn 0.3s ease"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+            maxWidth:900,margin:"0 auto 0.8rem",
+            paddingBottom:"0.6rem",borderBottom:`1px solid ${C.border2}`}}>
+            <div style={{fontFamily:"'Rajdhani',sans-serif",fontSize:"1.1rem",fontWeight:700,color:C.green}}>
+              ♟ SOLMATE
+            </div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"0.62rem",color:C.muted}}>
+              Match <span style={{color:C.green}}>#{matchId}</span>
+            </div>
+            <Btn variant="ghost" onClick={goHome} style={{padding:"0.3rem 0.8rem",fontSize:"0.6rem"}}>
+              🏠 Home
+            </Btn>
+          </div>
+
+          <div className="game-grid" style={{display:"grid",gridTemplateColumns:"160px 1fr 160px",
+            gap:"0.8rem",maxWidth:900,margin:"0 auto",alignItems:"start"}}>
+
+            {/* LEFT SIDEBAR */}
+            <div>
+              <div style={{background:C.s1,padding:"1rem",marginBottom:"0.5rem",
+                border:`1px solid ${!myTurn?C.green:C.border2}`,
+                transition:"all 0.3s",animation:!myTurn?"glow 2s infinite":"none"}}>
+                <div style={{fontSize:"2rem",marginBottom:"0.3rem"}}>🤖</div>
+                <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:"0.82rem"}}>
+                  Bot-{oppElo}
+                </div>
+                <div style={{fontSize:"0.6rem",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>
+                  ELO {oppElo}
+                </div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"1.6rem",
+                  marginTop:"0.5rem",color:oppTime<15?C.red:C.text,
+                  animation:oppTime<15?"pulse 1s infinite":"none"}}>
+                  {fmtTime(oppTime)}
+                </div>
+              </div>
+
+              <div style={{background:C.s1,border:`1px solid ${C.green}`,padding:"0.8rem",
+                marginBottom:"0.5rem",boxShadow:`0 0 20px rgba(0,229,160,0.07)`}}>
+                <div style={{fontSize:"0.48rem",letterSpacing:"0.2em",textTransform:"uppercase",
+                  color:C.muted,marginBottom:"0.2rem"}}>Live Yield Pool</div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",color:C.green,
+                  fontSize:"0.88rem",animation:"yieldTick 2s infinite"}}>
+                  {liveYield.toFixed(6)}
+                </div>
+                <div style={{fontSize:"0.52rem",color:C.muted}}>SOL accruing</div>
+                <div style={{fontSize:"0.52rem",color:C.gold,marginTop:"0.1rem"}}>
+                  ≈${(liveYield*SOL_PRICE).toFixed(4)}
+                </div>
+              </div>
+
+              <div style={{background:C.s1,border:`1px solid ${C.border2}`,
+                padding:"0.7rem",marginBottom:"0.5rem"}}>
+                <div style={{fontSize:"0.48rem",letterSpacing:"0.2em",textTransform:"uppercase",
+                  color:C.muted,marginBottom:"0.2rem"}}>Multiplier</div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",color:C.gold,fontSize:"1.3rem"}}>
+                  {mult.toFixed(2)}×
+                </div>
+              </div>
+
+              <div style={{background:C.s1,padding:"1rem",
+                border:`1px solid ${myTurn?C.green:C.border2}`,
+                transition:"all 0.3s",animation:myTurn?"glow 2s infinite":"none"}}>
+                <div style={{fontSize:"2rem",marginBottom:"0.3rem"}}>🧠</div>
+                <div style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:"0.82rem"}}>You</div>
+                <div style={{fontSize:"0.6rem",color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>
+                  ELO {elo}
+                </div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"1.6rem",
+                  marginTop:"0.5rem",color:myTime<15?C.red:C.text,
+                  animation:myTime<15?"pulse 1s infinite":"none"}}>
+                  {fmtTime(myTime)}
+                </div>
+              </div>
+            </div>
+
+            {/* CENTER: BOARD */}
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+              <div style={{width:"100%",display:"flex",justifyContent:"space-between",
+                alignItems:"center",marginBottom:"0.5rem",fontSize:"0.62rem"}}>
+                <span style={{color:C.muted,fontFamily:"'JetBrains Mono',monospace"}}>
+                  {stakeAmt.toFixed(2)} SOL
+                </span>
+                <div style={{padding:"0.22rem 0.9rem",fontFamily:"'Rajdhani',sans-serif",
+                  fontWeight:700,fontSize:"0.62rem",letterSpacing:"0.12em",
+                  background:myTurn?"rgba(232,234,245,0.08)":"rgba(0,0,0,0.4)",
+                  border:`1px solid ${myTurn?C.border:C.border2}`,
+                  color:myTurn?C.text:C.muted,transition:"all 0.3s"}}>
+                  {myTurn?"◉ WHITE TO MOVE":"● BLACK TO MOVE"}
+                </div>
+                <span style={{color:C.gold,fontFamily:"'JetBrains Mono',monospace"}}>{mode.name}</span>
+              </div>
+
+              <div className="board-wrap"
+                style={{width:"100%",maxWidth:480,border:`2px solid ${C.border}`,aspectRatio:1,
+                  display:"grid",gridTemplateColumns:"repeat(8,1fr)",
+                  boxShadow:`0 0 60px rgba(0,229,160,0.06),0 0 120px rgba(0,0,0,0.5)`,
+                  position:"relative"}}>
+                {Array(8).fill(null).map((_,r)=>Array(8).fill(null).map((_,c)=>{
+                  const p = board[r][c];
+                  const isLight = (r+c)%2===0;
+                  const isSel = sel?.[0]===r && sel?.[1]===c;
+                  const isHint = hints.some(m=>m[0]===r&&m[1]===c);
+                  const isLast = lastMv&&((lastMv[0]===r&&lastMv[1]===c)||(lastMv[2]===r&&lastMv[3]===c));
+                  let bg = isLight ? "#1a1d38" : "#0e1025";
+                  if (isSel) bg = "rgba(0,229,160,0.28)";
+                  else if (isLast) bg = "rgba(0,229,160,0.1)";
+                  return (
+                    <div key={`${r}-${c}`} className="sq-cell" onClick={()=>clickSquare(r,c)}
+                      style={{background:bg,display:"flex",alignItems:"center",
+                        justifyContent:"center",cursor:"pointer",
+                        position:"relative",aspectRatio:1,
+                        boxShadow:isSel?`inset 0 0 0 2px ${C.green}`:
+                          isHint?`inset 0 0 0 1px rgba(0,229,160,0.5)`:"none",
+                        transition:"background 0.1s"}}>
+                      {isHint&&!p&&<div style={{width:"30%",height:"30%",borderRadius:"50%",
+                        background:"rgba(0,229,160,0.45)",pointerEvents:"none"}}/>}
+                      {isHint&&p&&<div style={{position:"absolute",inset:"2px",
+                        border:"2px solid rgba(0,229,160,0.6)",pointerEvents:"none"}}/>}
+                      {p&&<span style={{fontSize:"clamp(0.9rem,3vw,1.45rem)",userSelect:"none",
+                        filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.8))",
+                        transition:"transform 0.1s"}}>
+                        {G[p.s+p.t]}
+                        </span>}
+                      {r===7&&<span style={{position:"absolute",bottom:1,right:2,
+                        fontSize:"0.35rem",color:C.border2,
+                        fontFamily:"'JetBrains Mono',monospace"}}>{FILES[c]}</span>}
+                      {c===0&&<span style={{position:"absolute",top:1,left:2,
+                        fontSize:"0.35rem",color:C.border2,
+                        fontFamily:"'JetBrains Mono',monospace"}}>{8-r}</span>}
+                    </div>
+                  );
+                }))}
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",
+                width:"100%",maxWidth:480,marginTop:"0.25rem"}}>
+                {"abcdefgh".split("").map(f=>(
+                  <div key={f} style={{textAlign:"center",fontSize:"0.5rem",
+                    color:C.border2,fontFamily:"'JetBrains Mono',monospace"}}>{f}</div>
+                ))}
+              </div>
+
+              <div style={{display:"flex",gap:"0.5rem",marginTop:"0.7rem",
+                width:"100%",maxWidth:480,flexWrap:"wrap"}}>
+                <Btn variant="ghost" onClick={offerDraw}
+                  style={{flex:1,padding:"0.5rem",fontSize:"0.6rem",minWidth:70}}>🤝 Draw</Btn>
+                <Btn variant="danger" onClick={resign}
+                  style={{flex:1,padding:"0.5rem",fontSize:"0.6rem",minWidth:70}}>🏳 Resign</Btn>
+                <Btn variant="success" onClick={()=>resolveGame("win","debug")}
+                  style={{flex:1,padding:"0.5rem",fontSize:"0.6rem",minWidth:60}}>✓ Win</Btn>
+                <Btn variant="danger" onClick={()=>resolveGame("loss","debug")}
+                  style={{flex:1,padding:"0.5rem",fontSize:"0.6rem",minWidth:60}}>✗ Loss</Btn>
+                <Btn variant="gold" onClick={()=>resolveGame("draw","debug")}
+                  style={{flex:1,padding:"0.5rem",fontSize:"0.6rem",minWidth:60}}>≈ Draw</Btn>
+              </div>
+            </div>
+
+            {/* RIGHT SIDEBAR */}
+            <div className="side-col">
+              <Panel style={{marginBottom:"0.6rem",maxHeight:220,overflowY:"auto"}}
+                className="scroll-thin">
+                <PHead>Move Log</PHead>
+                {moveLog.length===0&&<div style={{fontSize:"0.62rem",color:C.muted}}>Waiting...</div>}
+                {moveLog.map((m,i)=>(
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"18px 1fr 1fr",
+                    gap:"0.3rem",fontSize:"0.6rem",color:C.muted,
+                    padding:"0.15rem 0",borderBottom:"1px solid rgba(255,255,255,0.02)"}}>
+                    <span style={{color:"rgba(232,234,245,0.2)"}}>{m.num}.</span>
+                    <span style={{color:C.text}}>{m.w}</span>
+                    <span>{m.b}</span>
+                  </div>
+                ))}
+              </Panel>
+
+              <Panel style={{background:"rgba(0,229,160,0.02)",
+                border:`1px solid rgba(0,229,160,0.12)`}}>
+                <PHead>On-Chain</PHead>
+                <PRow label="Program" value="So1mat3.."/>
+                <PRow label="Network" value="Devnet" vc={C.blue}/>
+                <PRow label="Source" value="Marinade" vc={C.gold}/>
+                <PRow label="Stake" value={`${stakeAmt.toFixed(2)} SOL`} vc={C.green}/>
+              </Panel>
+            </div>
+          </div>
+
+          {toast&&(
+            <div style={{position:"fixed",bottom:"1.2rem",right:"1.2rem",zIndex:9999,
+              background:C.s1,border:`1px solid ${toast.type==="error"?C.red:toast.type==="success"?C.green:C.border}`,
+              padding:"0.7rem 1.2rem",fontSize:"0.7rem",maxWidth:280,
+              animation:"slideRight 0.4s ease",
+              boxShadow:`0 0 30px ${toast.type==="error"?"rgba(255,51,85,0.15)":"rgba(0,229,160,0.12)"}`}}>
+              {toast.msg}
+            </div>
+          )}
+        </div>
+      );
+
+      /* ═══════════════════════════════════════════════════════
+         SCREEN: RESULT
+      ═══════════════════════════════════════════════════════ */
+      if (screen === "result" && result) {
+        const isWin = result.type==="win", isLoss = result.type==="loss";
+        const gc = isWin?C.green:isLoss?C.red:C.gold;
+        return (
+          <div style={{minHeight:"100vh",background:C.bg,display:"flex",
+            flexDirection:"column",alignItems:"center",justifyContent:"center",
+            padding:"1.5rem 1rem",
+            backgroundImage:`radial-gradient(ellipse 60% 50% at 50% 30%, ${isWin?"rgba(0,229,160,0.06)":isLoss?"rgba(255,51,85,0.06)":"rgba(240,184,64,0.05)"} 0%, transparent 70%)`,
+            animation:"fadeIn 0.5s ease"}}>
+
+            <div className="result-card" style={{maxWidth:500,width:"100%",
+              textAlign:"center",animation:"slideUp 0.6s ease",padding:"2rem 1.5rem"}}>
+
+              <div style={{width:100,height:100,borderRadius:"50%",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:"2.8rem",margin:"0 auto 1.2rem",
+                background:`radial-gradient(circle,${gc}18,transparent)`,
+                border:`1px solid ${gc}44`,
+                boxShadow:`0 0 50px ${gc}20`,
+                animation:"winBurst 1.2s ease infinite"}}>
+                {isWin?"🏆":isLoss?"💀":"🤝"}
+              </div>
+
+              <div style={{fontFamily:"'Rajdhani',sans-serif",fontSize:"2.8rem",
+                fontWeight:700,color:gc,letterSpacing:"0.05em",lineHeight:1,
+                marginBottom:"0.3rem"}}>
+                {isWin?"VICTORY":isLoss?"DEFEATED":"DRAW"}
+              </div>
+              <div style={{color:C.muted,fontSize:"0.8rem",lineHeight:1.7,marginBottom:"1.8rem"}}>
+                {isWin?"You outplayed your opponent and claimed the full yield pool.":
+                 isLoss?"Opponent claimed the yield. Your full principal has been returned.":
+                 "Honours even — each player keeps their own yield and principal."}
+              </div>
+
+              <Panel style={{marginBottom:"1rem",textAlign:"left"}}>
+                <PHead>Settlement</PHead>
+                <PRow label="Your principal returned" value={`${result.stake.toFixed(4)} SOL ✓`} vc={C.green}/>
+                <PRow label="Total yield generated" value={`${fmtSOL(result.raw)} SOL`}/>
+                <PRow label="Your multiplier" value={`${result.prevMult.toFixed(2)}×`} vc={C.gold}/>
+                <PRow label="Platform fee (3%)" value={`-${fmtSOL(result.raw*FEE)} SOL`} vc={C.red}/>
+                <div style={{borderTop:`1px solid ${C.border}`,marginTop:"0.6rem",
+                  paddingTop:"0.7rem",display:"flex",justifyContent:"space-between",
+                  alignItems:"center"}}>
+                  <span style={{fontFamily:"'Rajdhani',sans-serif",fontWeight:700,fontSize:"0.9rem"}}>
+                    {isLoss?"Yield lost to opponent":"You receive"}
+                  </span>
+                  <div style={{textAlign:"right",animation:"countUp 0.6s ease"}}>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",
+                      color:isLoss?C.red:C.green,fontSize:"1.1rem",fontWeight:700}}>
+                      {isLoss?"-":"+"}{fmtSOL(result.earned)} SOL
+                    </div>
+                    <div style={{fontSize:"0.6rem",color:C.muted}}>
+                      ≈${fmtUSD(result.earned)} USD
+                    </div>
+                  </div>
+                </div>
+              </Panel>
+
+              <div style={{display:"inline-flex",alignItems:"center",gap:"0.7rem",
+                padding:"0.55rem 1.3rem",background:C.s1,
+                border:`1px solid ${result.newMult>=result.prevMult?C.border:"rgba(255,51,85,0.25)"}`,
+                fontSize:"0.72rem",marginBottom:"1rem",animation:"slideUp 0.8s ease"}}>
+                <span style={{color:result.newMult>result.prevMult?C.green:result.newMult<result.prevMult?C.red:C.muted,fontSize:"1rem"}}>
+                  {result.newMult>result.prevMult?"▲":result.newMult<result.prevMult?"▼":"—"}
+                </span>
+                Multiplier: <strong>{result.prevMult.toFixed(2)}×</strong> →{" "}
+                <strong style={{color:result.newMult>=result.prevMult?C.green:C.red,
+                  fontFamily:"'JetBrains Mono',monospace"}}>
+                  {result.newMult.toFixed(2)}×
+                </strong>
+              </div>
+
+              <Panel style={{marginBottom:"1.5rem"}}>
+                <PRow label="New ELO" value={`${result.newElo} (${result.eloChange>=0?"+":""}${result.eloChange})`}
+                  vc={result.eloChange>=0?C.green:C.red}/>
+                <PRow label="Win streak" value={`${result.newStreak}${result.newStreak>=3?" 🔥":""}`} vc={C.gold}/>
+                <PRow label="New balance" value={`${result.newBalance.toFixed(4)} SOL`}
+                  sub={`$${(result.newBalance*SOL_PRICE).toFixed(2)} USD`} vc={C.gold}/>
+                <PRow label="Total yield earned" value={`${result.newTotalYield.toFixed(5)} SOL`} vc={C.green}/>
+              </Panel>
+
+              <div style={{display:"flex",gap:"0.8rem"}}>
+                <Btn variant="primary" onClick={()=>setScreen("lobby")}
+                  style={{flex:1.5,padding:"0.9rem",fontSize:"0.82rem"}}>
+                  ⚡ Play Again
+                </Btn>
+                <Btn variant="ghost" onClick={()=>setScreen("land")}
+                  style={{flex:1,padding:"0.9rem"}}>
+                  🏠 Home
+                </Btn>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return null;
+    }
+
+    // Mount
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<Solmate />);
+  </script>
+</body>
+</html>
