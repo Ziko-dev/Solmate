@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>ChessStake — Chess · Yield · Skill</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#05060c;--s1:#0a0c18;--s2:#0f1120;--s3:#141728;
+  --gn:#00e5a0;--gn2:#00ffb3;--rd:#ff3355;--go:#f0b840;
+  --bl:#4d8fff;--tx:#e8eaf5;--mu:rgba(232,234,245,0.42);
+  --br:rgba(0,229,160,0.18);--br2:rgba(232,234,245,0.07);
+}
+html{scroll-behavior:smooth;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--tx);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(0,229,160,.12)}50%{box-shadow:0 0 26px rgba(0,229,160,.55)}}
+@keyframes up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(.88);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes yglow{0%,100%{color:var(--gn)}50%{color:var(--gn2);text-shadow:0 0 14px rgba(0,255,179,.5)}}
+@keyframes flash{0%{opacity:0}15%{opacity:1}85%{opacity:1}100%{opacity:0}}
+@keyframes cnt{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes loginShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.hidden{display:none!important;}
+.mono{font-family:'JetBrains Mono',monospace;}
+.green{color:var(--gn);}.gold{color:var(--go);}.red{color:var(--rd);}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;transition:all .2s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden;white-space:nowrap;}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:.15s;}
+.btn:hover::after{background:rgba(255,255,255,.07);}
+.btn:active{transform:scale(.93)!important;}
+.btn-primary{background:var(--gn);color:var(--bg);padding:.75rem 1.8rem;font-size:.78rem;box-shadow:0 0 28px rgba(0,229,160,.22);}
+.btn-primary:hover{background:var(--gn2);}
+.btn-ghost{background:transparent;color:var(--mu);padding:.65rem 1.2rem;font-size:.7rem;border:1px solid var(--br2);}
+.btn-ghost:hover{border-color:var(--br);color:var(--tx);}
+.btn-danger{background:transparent;color:var(--rd);padding:.55rem 1rem;font-size:.65rem;border:1px solid rgba(255,51,85,.3);}
+.btn-success{background:rgba(0,229,160,.08);color:var(--gn);padding:.55rem 1rem;font-size:.65rem;border:1px solid var(--br);}
+.btn-gold{background:rgba(240,184,64,.08);color:var(--go);padding:.55rem 1rem;font-size:.65rem;border:1px solid rgba(240,184,64,.3);}
+.btn-sm{padding:.42rem .7rem;font-size:.58rem;}
+.btn-full{width:100%;padding:.88rem;}
+.panel{background:var(--s1);border:1px solid var(--br2);padding:1.2rem;}
+.panel-head{font-size:.48rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gn);margin-bottom:.9rem;padding-bottom:.5rem;border-bottom:1px solid var(--br);}
+.panel-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.025);font-size:.72rem;gap:.5rem;}
+.panel-row:last-child{border-bottom:none;}
+.panel-row .key{color:var(--mu);flex-shrink:0;}
+.panel-row .val{font-family:'JetBrains Mono',monospace;text-align:right;}
+.panel-row .sub{font-size:.56rem;color:var(--mu);margin-top:.05rem;}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:rgba(0,229,160,.25);border-radius:2px;}
+::-webkit-scrollbar-track{background:transparent;}
+.screen{display:none;min-height:100vh;}
+.screen.active{display:flex;flex-direction:column;}
+/* NAV */
+.gnav{position:sticky;top:0;z-index:100;background:rgba(5,6,12,.95);border-bottom:1px solid var(--br2);backdrop-filter:blur(20px);padding:.65rem 1.2rem;display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;}
+.gnav-brand{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gn);flex-shrink:0;}
+.gnav-right{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.bal-pill{background:var(--s2);border:1px solid var(--br2);padding:.28rem .75rem;font-family:'JetBrains Mono',monospace;}
+.bal-pill .sol{font-size:.62rem;color:var(--go);}
+.bal-pill .usd{font-size:.52rem;color:var(--mu);}
+.addr-pill{background:var(--s1);border:1px solid var(--br);padding:.28rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--gn);display:flex;align-items:center;gap:.35rem;}
+.addr-dot{width:6px;height:6px;border-radius:50%;background:var(--gn);animation:pulse 2s infinite;flex-shrink:0;}
+/* TOAST */
+#toast{position:fixed;bottom:1rem;right:1rem;z-index:9999;background:var(--s1);padding:.65rem 1.1rem;font-size:.7rem;max-width:280px;font-family:'Rajdhani',sans-serif;letter-spacing:.03em;transform:translateX(200%);transition:transform .4s cubic-bezier(.16,1,.3,1);pointer-events:none;}
+#toast.show{transform:translateX(0);}
+#toast.ok{border:1px solid var(--gn);box-shadow:0 4px 24px rgba(0,229,160,.1);}
+#toast.err{border:1px solid var(--rd);box-shadow:0 4px 24px rgba(255,51,85,.12);}
+#toast.info{border:1px solid var(--br2);}
+/* LOGIN */
+#sc-login{background:radial-gradient(ellipse 70% 60% at 50% 20%,rgba(0,229,160,.06) 0%,transparent 65%),radial-gradient(ellipse 40% 40% at 80% 80%,rgba(96,165,250,.04) 0%,transparent 50%);align-items:center;justify-content:center;}
+.login-wrap{width:100%;max-width:380px;padding:1rem;animation:up .5s ease;}
+.login-brand{text-align:center;margin-bottom:1.8rem;}
+.login-brand .lbicon{font-size:2.8rem;filter:drop-shadow(0 0 18px rgba(0,229,160,.4));}
+.login-brand .lbtitle{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--gn);letter-spacing:.15em;margin-top:.2rem;}
+.login-brand .lbsub{font-size:.58rem;letter-spacing:.3em;color:var(--mu);text-transform:uppercase;}
+#login-box{background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:1.6rem;box-shadow:0 8px 40px rgba(0,0,0,.5);}
+.login-title{font-size:.8rem;font-weight:700;color:var(--tx);margin-bottom:1.2rem;letter-spacing:.05em;}
+.login-field{margin-bottom:.9rem;}
+.login-label{font-size:.58rem;color:var(--mu);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.35rem;display:block;}
+.login-input-wrap{position:relative;}
+.login-input{width:100%;background:var(--bg);border:1px solid var(--br2);border-radius:6px;padding:.65rem .9rem;font-size:.75rem;color:var(--tx);font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .2s;}
+.login-input:focus{border-color:var(--gn);}
+.pw-toggle{position:absolute;right:.7rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:.8rem;color:var(--mu);padding:0;}
+.login-err{font-size:.6rem;color:#f87171;margin-bottom:.7rem;min-height:.9rem;text-align:center;letter-spacing:.03em;}
+.login-btn{width:100%;padding:.75rem;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;background:linear-gradient(135deg,var(--gn),var(--gn2));border:none;border-radius:6px;color:var(--bg);transition:all .2s;margin-top:.2rem;}
+.login-btn:hover{filter:brightness(1.1);box-shadow:0 4px 20px rgba(0,229,160,.3);}
+.login-btn:active{transform:scale(.98);}
+.login-divider{display:flex;align-items:center;gap:.6rem;margin:.9rem 0;}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--br);}
+.login-divider span{font-size:.55rem;color:var(--mu);letter-spacing:.05em;}
+.login-demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
+.login-demo-btn{padding:.5rem;font-size:.58rem;font-weight:600;cursor:pointer;background:rgba(255,255,255,.03);border:1px solid var(--br);border-radius:6px;color:var(--mu);transition:all .15s;text-align:center;}
+.login-demo-btn:hover{border-color:var(--gn);color:var(--gn);background:rgba(0,229,160,.05);}
+.login-footer{text-align:center;font-size:.55rem;color:var(--mu);margin-top:1.2rem;line-height:1.7;}
+.online-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gn);margin-right:.3rem;animation:pulse 2s infinite;vertical-align:middle;}
+/* CONNECT WALLET SCREEN */
+#sc-connect{align-items:center;justify-content:center;background:radial-gradient(ellipse 65% 50% at 50% 25%,rgba(0,229,160,.055) 0%,transparent 70%),linear-gradient(rgba(0,229,160,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,.02) 1px,transparent 1px);background-size:100% 100%,55px 55px,55px 55px;}
+.connect-inner{text-align:center;max-width:460px;width:100%;padding:2rem 1rem;}
+.connect-chess{font-size:3.5rem;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 0 22px rgba(0,229,160,.38));margin-bottom:.2rem;}
+.connect-title{font-family:'Rajdhani',sans-serif;font-size:2.2rem;font-weight:700;color:var(--gn);letter-spacing:.15em;margin-bottom:.15rem;}
+.connect-sub{font-size:.56rem;letter-spacing:.4em;color:var(--mu);text-transform:uppercase;margin-bottom:1.5rem;}
+.connect-user-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.2);border-radius:20px;padding:.3rem .9rem;font-size:.62rem;margin-bottom:1.5rem;}
+.wallet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;max-width:360px;margin:0 auto 1.2rem;}
+.wcard{background:var(--s1);border:1px solid var(--br2);padding:1.2rem .65rem;cursor:pointer;text-align:center;transition:all .2s;}
+.wcard:hover,.wcard:active{border-color:var(--gn);background:rgba(0,229,160,.05);transform:translateY(-2px);}
+.wcard-icon{font-size:1.6rem;margin-bottom:.35rem;}
+.wcard-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.76rem;}
+.wcard-sub{font-size:.55rem;color:var(--mu);margin-top:.08rem;}
+#phantom-options{display:none;margin-top:.5rem;}
+.connect-nav-btns{display:flex;gap:.6rem;justify-content:center;margin-top:1.2rem;}
+/* LOBBY */
+#sc-lobby{animation:up .4s ease;}
+.lobby-body{padding:1.2rem 1rem;max-width:960px;margin:0 auto;width:100%;}
+.lobby-grid{display:grid;grid-template-columns:minmax(260px,300px) 1fr;gap:1.1rem;}
+.yield-box{background:linear-gradient(135deg,rgba(0,229,160,.06),rgba(0,229,160,.02));border:1px solid var(--br);padding:.88rem;margin-bottom:.9rem;}
+.yield-box-head{font-size:.46rem;letter-spacing:.22em;text-transform:uppercase;color:var(--mu);margin-bottom:.55rem;}
+.yield-row{display:flex;justify-content:space-between;align-items:center;padding:.18rem 0;font-size:.7rem;}
+.yield-row .yk{color:var(--mu);}
+.yield-row .yv{font-family:'JetBrains Mono',monospace;text-align:right;}
+.yield-row .yv .ysub{font-size:.57rem;opacity:.8;display:block;}
+.stake-block{margin:.9rem 0;}
+.stake-label{font-size:.56rem;color:var(--mu);margin-bottom:.35rem;letter-spacing:.04em;text-transform:uppercase;}
+.stake-row{display:flex;gap:.4rem;margin-bottom:.4rem;}
+.stake-input{flex:1;background:var(--s2);border:1px solid var(--br);color:var(--tx);padding:.6rem .8rem;font-size:.95rem;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .2s;min-width:0;}
+.stake-input:focus{border-color:var(--gn);}
+.stake-usd{background:var(--s2);border:1px solid var(--br2);padding:.6rem .65rem;font-size:.6rem;color:var(--mu);display:flex;align-items:center;white-space:nowrap;font-family:'JetBrains Mono',monospace;}
+.quick-row{display:flex;gap:.35rem;}
+.qbtn{flex:1;padding:.28rem;background:var(--s2);border:1px solid var(--br2);color:var(--mu);font-family:'JetBrains Mono',monospace;font-size:.6rem;cursor:pointer;transition:all .2s;text-align:center;}
+.qbtn:hover,.qbtn.active{border-color:var(--gn);color:var(--gn);}
+.mode-card{display:flex;align-items:center;gap:.8rem;padding:.72rem;margin-bottom:.45rem;cursor:pointer;transition:all .2s;background:var(--s2);border:1px solid var(--br2);}
+.mode-card:hover{border-color:var(--br);}
+.mode-card.active{background:rgba(0,229,160,.06);border-color:var(--gn);}
+.mode-icon{font-size:1.2rem;}
+.mode-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;}
+.mode-label{font-size:.58rem;color:var(--mu);font-family:'JetBrains Mono',monospace;}
+.mode-check{color:var(--gn);margin-left:auto;}
+.wld-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.65rem;margin-bottom:1rem;}
+.wld-block{text-align:center;background:var(--s2);border:1px solid var(--br2);padding:.85rem .4rem;}
+.wld-num{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;line-height:1;}
+.wld-lbl{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mu);margin-top:.2rem;}
+.mult-bar-wrap{background:var(--s2);border:1px solid var(--br);padding:.85rem;margin-bottom:.8rem;}
+.mult-bar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.45rem;}
+.mult-bar-lbl{font-size:.46rem;letter-spacing:.22em;text-transform:uppercase;color:var(--mu);}
+.mult-bar-val{font-family:'JetBrains Mono',monospace;color:var(--go);font-size:1.3rem;}
+.mult-track{height:5px;background:var(--bg);border-radius:2px;overflow:hidden;}
+.mult-fill{height:100%;background:linear-gradient(90deg,var(--gn),var(--gn2));transition:width 1s cubic-bezier(.16,1,.3,1);box-shadow:0 0 8px var(--gn);}
+.mult-range{display:flex;justify-content:space-between;font-size:.53rem;color:var(--mu);margin-top:.3rem;}
+.hist-list{max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;}
+.hist-item{display:flex;align-items:center;gap:.6rem;padding:.45rem .65rem;background:var(--s2);border:1px solid var(--br2);font-size:.67rem;}
+.hist-badge{width:40px;text-align:center;font-weight:700;font-size:.58rem;padding:.2rem .3rem;font-family:'Rajdhani',sans-serif;letter-spacing:.04em;flex-shrink:0;}
+.hist-badge.WIN{background:rgba(0,229,160,.12);color:var(--gn);border:1px solid var(--br);}
+.hist-badge.LOSS{background:rgba(255,51,85,.12);color:var(--rd);border:1px solid rgba(255,51,85,.3);}
+.hist-badge.DRAW{background:rgba(232,234,245,.06);color:var(--mu);border:1px solid var(--br2);}
+.hist-opp{flex:1;color:var(--mu);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-date{font-size:.53rem;color:rgba(232,234,245,.2);margin-top:.05rem;}
+.hist-earned{text-align:right;flex-shrink:0;}
+.hist-sol{font-family:'JetBrains Mono',monospace;font-size:.68rem;}
+.hist-usd{font-size:.53rem;color:var(--mu);}
+.pps-step{flex-shrink:0;text-align:center;padding:.4rem .5rem;border-radius:6px;border:1px solid var(--br);min-width:64px;transition:all .2s;}
+.pps-step.current{border-width:2px;transform:scale(1.05);}
+.pps-step.achieved{opacity:.6;}
+.pps-step.locked{opacity:.35;}
+.pps-step-icon{font-size:1.1rem;}
+.pps-step-name{font-size:.5rem;font-weight:700;letter-spacing:.03em;margin:.1rem 0;}
+.pps-step-range{font-size:.45rem;color:var(--mu);}
+.pps-step-yield{font-size:.48rem;color:var(--gn);margin-top:.1rem;}
+.matchup-card{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid var(--br);border-radius:6px;padding:.45rem .65rem;cursor:pointer;transition:all .2s;}
+.matchup-card:hover{border-color:var(--gn);background:rgba(0,229,160,.05);}
+.matchup-yield{font-size:.65rem;font-weight:700;color:var(--gn);font-family:'JetBrains Mono',monospace;}
+.matchup-meta{font-size:.55rem;color:var(--mu);}
+.matchup-badge{font-size:.5rem;padding:.15rem .4rem;border-radius:3px;font-weight:700;letter-spacing:.05em;}
+/* MATCHMAKING */
+#sc-mm{align-items:center;justify-content:center;animation:up .4s ease;}
+.mm-inner{text-align:center;padding:2rem 1rem;}
+.mm-spinner{width:68px;height:68px;border:2px solid var(--br2);border-top:2px solid var(--gn);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 2rem;box-shadow:0 0 28px rgba(0,229,160,.12);}
+.mm-title{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;letter-spacing:.05em;margin-bottom:.35rem;}
+.mm-sub{color:var(--mu);font-size:.76rem;margin-bottom:2rem;}
+.mm-info{display:inline-flex;background:var(--s1);border:1px solid var(--br);overflow:hidden;margin-bottom:1.5rem;}
+.mm-stat{text-align:center;padding:.9rem 1.6rem;border-right:1px solid var(--br2);}
+.mm-stat:last-child{border-right:none;}
+.mm-stat-val{font-family:'JetBrains Mono',monospace;color:var(--gn);font-size:.9rem;}
+.mm-stat-lbl{font-size:.49rem;color:var(--mu);letter-spacing:.18em;text-transform:uppercase;margin-top:.15rem;}
+/* GAME */
+#sc-game{animation:up .3s ease;}
+.game-nav{display:flex;align-items:center;justify-content:space-between;max-width:900px;margin:0 auto;width:100%;padding:.6rem 1rem;border-bottom:1px solid var(--br2);flex-wrap:wrap;gap:.4rem;}
+.game-body{padding:.7rem 1rem;max-width:900px;margin:0 auto;width:100%;}
+.game-grid{display:grid;grid-template-columns:148px 1fr 148px;gap:.7rem;align-items:start;}
+.pcard{background:var(--s1);padding:.85rem;transition:all .3s;}
+.pcard.myturn{border:1px solid var(--gn)!important;animation:glow 2s infinite;}
+.pcard.oppturn{border:1px solid var(--gn)!important;animation:glow 2s infinite;}
+.pcard.idle{border:1px solid var(--br2);}
+.pcard-ava{font-size:1.7rem;margin-bottom:.2rem;}
+.pcard-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.78rem;}
+.pcard-elo{font-size:.53rem;color:var(--mu);font-family:'JetBrains Mono',monospace;}
+.pcard-timer{font-family:'JetBrains Mono',monospace;font-size:1.5rem;margin-top:.4rem;color:var(--tx);transition:color .3s;}
+.pcard-timer.low{color:var(--rd);animation:pulse 1s infinite;}
+.yield-live-box{background:var(--s1);border:2px solid var(--gn);padding:.85rem;margin:.45rem 0;box-shadow:0 0 18px rgba(0,229,160,.1);position:relative;overflow:hidden;}
+.yield-live-lbl{font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mu);margin-bottom:.12rem;}
+.yield-live-val{font-family:'JetBrains Mono',monospace;color:var(--gn);font-size:.88rem;animation:yglow 2s infinite;font-weight:500;}
+.yield-live-usd{font-size:.57rem;color:var(--gn);opacity:.78;margin-bottom:.1rem;}
+.yield-live-note{font-size:.44rem;color:var(--mu);}
+.yield-flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;z-index:2;animation:flash 2s ease;pointer-events:none;}
+.mult-mini{background:var(--s1);border:1px solid var(--br2);padding:.72rem;margin-bottom:.45rem;}
+.mult-mini-lbl{font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mu);margin-bottom:.1rem;}
+.mult-mini-val{font-family:'JetBrains Mono',monospace;color:var(--go);font-size:1.3rem;}
+.board-wrap{display:flex;flex-direction:column;align-items:center;}
+.board-meta{width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:.45rem;font-size:.6rem;flex-wrap:wrap;gap:.3rem;}
+.bm{color:var(--mu);font-family:'JetBrains Mono',monospace;}
+.turn-badge{padding:.22rem .85rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.6rem;letter-spacing:.12em;transition:all .3s;}
+.turn-badge.white{background:rgba(232,234,245,.07);border:1px solid var(--br);color:var(--tx);}
+.turn-badge.black{background:rgba(0,0,0,.4);border:1px solid var(--br2);color:var(--mu);}
+#chess-board{width:100%;max-width:460px;border:2px solid var(--br);display:grid;grid-template-columns:repeat(8,1fr);box-shadow:0 0 48px rgba(0,229,160,.05),0 0 90px rgba(0,0,0,.55);aspect-ratio:1;}
+.sq{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:background .1s;aspect-ratio:1;}
+.sq.lt{background:#191c36;}.sq.dk{background:#0d1020;}
+.sq.sel{background:rgba(0,229,160,.28)!important;box-shadow:inset 0 0 0 2px var(--gn);}
+.sq.lm{background:rgba(0,229,160,.1)!important;}
+.sq.hint::after{content:'';position:absolute;width:28%;height:28%;border-radius:50%;background:rgba(0,229,160,.45);pointer-events:none;}
+.sq.hint-cap{box-shadow:inset 0 0 0 2px rgba(0,229,160,.55)!important;}
+.sq:hover{transform:scale(1.06);z-index:5;}
+.piece{font-size:clamp(.85rem,3vw,1.4rem);user-select:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8));}
+.file-row{display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:460px;margin-top:.18rem;}
+.file-lbl{text-align:center;font-size:.47rem;color:var(--br2);font-family:'JetBrains Mono',monospace;}
+.game-btns{display:flex;gap:.4rem;margin-top:.62rem;width:100%;max-width:460px;flex-wrap:wrap;}
+.game-btns .btn{flex:1;padding:.45rem .2rem;font-size:.57rem;min-width:52px;}
+.move-log-box{background:var(--s1);border:1px solid var(--br2);padding:.9rem;max-height:200px;overflow-y:auto;margin-bottom:.6rem;}
+.move-log-head{font-size:.44rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gn);margin-bottom:.55rem;padding-bottom:.4rem;border-bottom:1px solid var(--br);}
+.move-entry{display:grid;grid-template-columns:16px 1fr 1fr;gap:.3rem;font-size:.58rem;color:var(--mu);padding:.12rem 0;border-bottom:1px solid rgba(255,255,255,.02);}
+.move-num{color:rgba(232,234,245,.18);}.move-w{color:var(--tx);}
+.onchain-box{background:rgba(0,229,160,.02);border:1px solid rgba(0,229,160,.12);padding:.9rem;}
+/* RESULT */
+#sc-result{align-items:center;justify-content:center;padding:1.5rem 1rem;animation:up .5s ease;}
+.result-card{max-width:500px;width:100%;text-align:center;}
+.result-icon-wrap{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.6rem;margin:0 auto 1.1rem;}
+.result-title{font-family:'Rajdhani',sans-serif;font-size:2.6rem;font-weight:700;letter-spacing:.05em;line-height:1;margin-bottom:.25rem;}
+.result-desc{color:var(--mu);font-size:.78rem;line-height:1.7;margin-bottom:1.5rem;}
+.earned-big{border-top:1px solid var(--br);margin-top:.65rem;padding-top:.75rem;display:flex;justify-content:space-between;align-items:center;}
+.earned-big-lbl{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;}
+.earned-big-val{text-align:right;animation:cnt .8s ease;}
+.earned-sol{font-family:'JetBrains Mono',monospace;font-size:1.2rem;font-weight:700;}
+.earned-usd{font-size:.62rem;opacity:.85;}
+.mult-badge{display:inline-flex;align-items:center;gap:.65rem;padding:.5rem 1.2rem;background:var(--s1);font-size:.7rem;margin-bottom:.9rem;}
+.result-btns{display:flex;gap:.7rem;}
+.epoch-countdown{font-family:'JetBrains Mono',monospace;}
+/* RESPONSIVE */
+@media(max-width:700px){
+  .lobby-grid{grid-template-columns:1fr!important;}
+  .game-grid{grid-template-columns:1fr!important;}
+  .game-sidebar-right{display:none;}
+  .game-btns .btn{font-size:.53rem;padding:.42rem .15rem;min-width:46px;}
+  .gnav-right{gap:.35rem;}
+  .mm-info{flex-direction:column;}
+  .mm-stat{border-right:none;border-bottom:1px solid var(--br2);padding:.7rem 1.6rem;}
+  .mm-stat:last-child{border-bottom:none;}
+  .result-card{padding:0;}
+  .result-btns{flex-direction:column;}
+  .wallet-grid{grid-template-columns:1fr 1fr!important;}
+  .wcard:last-child{grid-column:span 2;}
+}
+@media(max-width:480px){
+  .wld-grid{gap:.45rem;}
+  .lobby-body{padding:.9rem .75rem;}
+  .game-body{padding:.5rem .75rem;}
+}
+@media(min-width:701px) and (max-width:860px){
+  .game-grid{grid-template-columns:130px 1fr 130px;}
+}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- ═══ SCREEN 1: LOGIN (HOME PAGE) ═══ -->
+<section class="screen active" id="sc-login">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="lbicon">♟</div>
+      <div class="lbtitle">CHESSSTAKE</div>
+      <div class="lbsub">Chess · Yield · Skill · Solana</div>
+    </div>
+    <div id="login-box">
+      <div class="login-title">Sign In to Play</div>
+      <div class="login-field">
+        <label class="login-label" for="login-email">Email Address</label>
+        <input class="login-input" type="email" id="login-email" placeholder="you@gmail.com" autocomplete="email" onkeydown="if(event.key==='Enter')el('login-pass').focus()"/>
+      </div>
+      <div class="login-field">
+        <label class="login-label" for="login-pass">Password</label>
+        <div class="login-input-wrap">
+          <input class="login-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')tryLogin()" style="padding-right:2.5rem"/>
+          <button class="pw-toggle" id="toggle-pw" onclick="togglePW()" type="button">👁</button>
+        </div>
+      </div>
+      <div class="login-err" id="login-err"></div>
+      <button class="login-btn" onclick="tryLogin()">⚡ Sign In &amp; Play</button>
+      <div class="login-divider"><span>quick access</span></div>
+      <div class="login-demo-grid">
+        <div class="login-demo-btn" onclick="quickLogin('aaa@gmail.com','aaa111')">♔ Player AAA</div>
+        <div class="login-demo-btn" onclick="quickLogin('bbb@gmail.com','bbb222')">♕ Player BBB</div>
+        <div class="login-demo-btn" onclick="quickLogin('ccc@gmail.com','ccc333')">♖ Player CCC</div>
+        <div class="login-demo-btn" onclick="quickLogin('ddd@gmail.com','ddd444')">♗ Player DDD</div>
+        <div class="login-demo-btn" onclick="quickLogin('eee@gmail.com','eee555')">♘ Player EEE</div>
+        <div class="login-demo-btn" onclick="quickLogin('aaa@gmail.com','aaa111')" style="border-color:rgba(0,229,160,.3);color:var(--gn)">🎮 Demo</div>
+      </div>
+    </div>
+    <div class="login-footer">
+      <span class="online-dot"></span>5 slots active · Invite only<br>
+      Treasury: 3,000 SOL staked in Jito · ~10% APY<br>
+      Entry fee from 0.02 SOL · All results on-chain
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCREEN 2: CONNECT WALLET ═══ -->
+<section class="screen" id="sc-connect">
+  <div class="connect-inner">
+    <div class="connect-chess">♟</div>
+    <div class="connect-title">CHESSSTAKE</div>
+    <div class="connect-sub">Connect Your Wallet to Play</div>
+
+    <div class="connect-user-badge" id="connect-user-badge">
+      <span id="connect-avatar">♟</span>
+      <span id="connect-username" style="color:var(--gn);font-weight:700">Player</span>
+      <span style="color:var(--mu)">·</span>
+      <span style="color:var(--mu);font-family:'JetBrains Mono',monospace;font-size:.6rem" id="connect-bal">1.0000 SOL ($200.00)</span>
+    </div>
+
+    <div style="font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);margin-bottom:.6rem;">Choose Wallet</div>
+
+    <div class="wallet-grid" id="wallet-grid-main">
+      <div class="wcard" onclick="openWalletFlow()">
+        <div class="wcard-icon">👻</div>
+        <div class="wcard-name">Phantom</div>
+        <div class="wcard-sub">Recommended</div>
+      </div>
+      <div class="wcard" onclick="connectWallet('Backpack')">
+        <div class="wcard-icon">🎒</div>
+        <div class="wcard-name">Backpack</div>
+        <div class="wcard-sub">xNFT native</div>
+      </div>
+      <div class="wcard" onclick="connectWallet('Solflare')">
+        <div class="wcard-icon">🔆</div>
+        <div class="wcard-name">Solflare</div>
+        <div class="wcard-sub">Mobile ready</div>
+      </div>
+    </div>
+
+    <div id="phantom-options" style="display:none;margin-top:.5rem">
+      <div style="font-size:.58rem;color:var(--mu);margin-bottom:.4rem;text-align:center">How to connect Phantom?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;max-width:360px;margin:0 auto">
+        <div class="wcard" style="padding:.6rem .4rem" onclick="connectWallet('Phantom')">
+          <div class="wcard-icon" style="font-size:1.2rem">🌐</div>
+          <div class="wcard-name" style="font-size:.62rem">Browser</div>
+          <div class="wcard-sub">Extension</div>
+        </div>
+        <div class="wcard" style="padding:.6rem .4rem" onclick="connectWallet('Phantom-Mobile')">
+          <div class="wcard-icon" style="font-size:1.2rem">📱</div>
+          <div class="wcard-name" style="font-size:.62rem">Mobile</div>
+          <div class="wcard-sub">Deep link</div>
+        </div>
+        <div class="wcard" style="padding:.6rem .4rem" onclick="connectWallet('Demo')">
+          <div class="wcard-icon" style="font-size:1.2rem">🎮</div>
+          <div class="wcard-name" style="font-size:.62rem">Demo</div>
+          <div class="wcard-sub">No wallet</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:.5rem">
+        <span style="font-size:.55rem;color:var(--mu);cursor:pointer" onclick="closeWalletFlow()">← Back</span>
+      </div>
+    </div>
+
+    <div class="connect-nav-btns">
+      <button class="btn btn-ghost btn-sm" onclick="showScreen('sc-login')">← Back to Login</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCREEN 3: LOBBY ═══ -->
+<section class="screen" id="sc-lobby">
+  <nav class="gnav">
+    <div class="gnav-brand">♟ CHESSSTAKE <span id="nav-username" style="font-size:.6rem;color:var(--mu);font-weight:400;letter-spacing:.05em"></span></div>
+    <div class="gnav-right">
+      <div class="bal-pill">
+        <div class="sol" id="nav-sol">1.0000 SOL</div>
+        <div class="usd" id="nav-usd">$200.00</div>
+      </div>
+      <div class="addr-pill">
+        <span class="addr-dot"></span>
+        <span id="nav-addr">—</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="showScreen('sc-connect')">Wallet</button>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">← Login</button>
+    </div>
+  </nav>
+  <div class="lobby-body">
+    <div class="lobby-grid">
+      <!-- LEFT -->
+      <div>
+        <div class="panel" style="margin-bottom:1rem">
+          <div class="panel-head">Stake Setup</div>
+          <div class="panel-row"><span class="key">Balance</span><div><div class="val green" id="lob-bal">1.0000 SOL</div><div class="sub" id="lob-usd">$200.00</div></div></div>
+          <div class="panel-row" style="border-bottom:none"><span class="key">Multiplier · PPS</span><div class="val gold" id="lob-mult">1.00× · 🌱 0.50</div></div>
+          <div class="stake-block">
+            <div class="stake-label">Entry Fee (SOL)</div>
+            <div class="stake-row">
+              <input class="stake-input" type="number" id="stake-inp" value="0.02" min="0.01" step="0.01" oninput="updatePreview()"/>
+              <div class="stake-usd" id="stake-usd-display">$4.00</div>
+            </div>
+            <div class="quick-row">
+              <div class="qbtn active" onclick="setStake(0.02)">0.02</div>
+              <div class="qbtn" onclick="setStake(0.05)">0.05</div>
+              <div class="qbtn" onclick="setStake(0.10)">0.10</div>
+              <div class="qbtn" onclick="setStake(0.25)">0.25</div>
+            </div>
+          </div>
+          <div class="yield-box">
+            <div class="yield-box-head">Yield Preview — <span id="prev-mode-name">Bullet</span> (<span id="prev-mode-label">1+0</span>)</div>
+            <div class="yield-row"><span class="yk">Pool generated</span><div class="yv"><span id="prev-pool">—</span></div></div>
+            <div class="yield-row"><span class="yk">WIN → net gain</span><div class="yv green"><span id="prev-win">—</span><span class="ysub" id="prev-win-usd">—</span></div></div>
+            <div class="yield-row"><span class="yk">LOSS → net change</span><div class="yv red"><span id="prev-loss">—</span><span class="ysub" id="prev-loss-usd">—</span></div></div>
+            <div class="yield-row"><span class="yk">DRAW → net</span><div class="yv gold"><span id="prev-draw">—</span><span class="ysub" id="prev-draw-usd">—</span></div></div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="findMatch()">⚡ Lock Entry &amp; Find Match</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">Game Mode</div>
+          <div class="mode-card active" data-idx="0" onclick="selectMode(0)">
+            <span class="mode-icon">⚡</span>
+            <div><div class="mode-name">Bullet</div><div class="mode-label">1+0 · fastest</div></div>
+            <span class="mode-check">✓</span>
+          </div>
+          <div class="mode-card" data-idx="1" onclick="selectMode(1)">
+            <span class="mode-icon">🔥</span>
+            <div><div class="mode-name">Blitz</div><div class="mode-label">3+2 · balanced</div></div>
+            <span class="mode-check hidden">✓</span>
+          </div>
+          <div class="mode-card" data-idx="2" onclick="selectMode(2)">
+            <span class="mode-icon">🧠</span>
+            <div><div class="mode-name">Rapid</div><div class="mode-label">10+0 · deep yield</div></div>
+            <span class="mode-check hidden">✓</span>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT -->
+      <div>
+        <div class="panel" style="margin-bottom:1rem">
+          <div class="panel-head">Account</div>
+          <div class="wld-grid">
+            <div class="wld-block"><div class="wld-num" style="color:var(--gn)" id="stat-w">0</div><div class="wld-lbl">Wins</div></div>
+            <div class="wld-block"><div class="wld-num" style="color:var(--rd)" id="stat-l">0</div><div class="wld-lbl">Losses</div></div>
+            <div class="wld-block"><div class="wld-num" style="color:var(--mu)" id="stat-d">0</div><div class="wld-lbl">Draws</div></div>
+          </div>
+          <div class="mult-bar-wrap">
+            <div class="mult-bar-top"><span class="mult-bar-lbl">Yield Multiplier</span><span class="mult-bar-val" id="mult-bar-val">1.00×</span></div>
+            <div class="mult-track"><div class="mult-fill" id="mult-fill" style="width:20%"></div></div>
+            <div class="mult-range"><span>0.5× min</span><span>3.0× max</span></div>
+          </div>
+          <div class="panel-row"><span class="key">ELO Rating</span><div class="val mono" id="stat-elo">1200</div></div>
+          <div class="panel-row"><span class="key">Win Streak</span><div class="val gold" id="stat-streak">0</div></div>
+          <div class="panel-row"><span class="key">Total Yield Earned</span><div><div class="val green mono" id="stat-earned">0.00000 SOL</div><div class="sub" id="stat-earned-usd">$0.00</div></div></div>
+          <div class="panel-row" style="border-bottom:none"><span class="key">Balance</span><div><div class="val gold mono" id="stat-bal">1.0000 SOL</div><div class="sub" id="stat-bal-usd">$200.00</div></div></div>
+          <div style="margin-top:.8rem;display:flex;gap:.5rem;align-items:center">
+            <button class="btn btn-danger btn-sm" onclick="resetProgress()">Reset</button>
+            <span style="font-size:.56rem;color:var(--mu)">💾 Auto-saved per account</span>
+          </div>
+        </div>
+        <div id="epoch-banner"></div>
+        <div class="panel" id="pps-panel" style="margin-bottom:.6rem"></div>
+        <div class="panel" id="treasury-panel" style="margin-bottom:.6rem"></div>
+        <div class="panel">
+          <div class="panel-head">Match History (<span id="hist-count">0</span>)</div>
+          <div class="hist-list" id="hist-list">
+            <div style="font-size:.7rem;color:var(--mu);text-align:center;padding:1.2rem">No matches yet — play to earn!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCREEN 4: MATCHMAKING ═══ -->
+<section class="screen" id="sc-mm">
+  <div class="mm-inner">
+    <div class="mm-spinner"></div>
+    <div class="mm-title">FINDING OPPONENT</div>
+    <div class="mm-sub">Entry locked · Yield pool initializing</div>
+    <div class="mm-info">
+      <div class="mm-stat"><div class="mm-stat-val" id="mm-stake">0.02 SOL</div><div class="mm-stat-lbl">Entry</div></div>
+      <div class="mm-stat"><div class="mm-stat-val" id="mm-mode">Bullet</div><div class="mm-stat-lbl">Mode</div></div>
+      <div class="mm-stat"><div class="mm-stat-val" id="mm-elo">1200</div><div class="mm-stat-lbl">Your ELO</div></div>
+    </div>
+    <button class="btn btn-ghost" onclick="cancelMatch()">Cancel</button>
+  </div>
+</section>
+
+<!-- ═══ SCREEN 5: GAME ═══ -->
+<section class="screen" id="sc-game">
+  <nav class="gnav" style="max-width:900px;margin:0 auto;position:sticky;top:0">
+    <div class="gnav-brand">♟ CHESSSTAKE <span id="nav-username2" style="font-size:.6rem;color:var(--mu);font-weight:400"></span></div>
+    <div class="gnav-right">
+      <div class="bal-pill"><div class="sol" id="game-nav-sol">1.0000 SOL</div><div class="usd" id="game-nav-usd">$200.00</div></div>
+      <div class="addr-pill" style="font-size:.55rem">#<span id="game-match-id">SM-00000</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="goHomeFromGame()">🏠 Lobby</button>
+    </div>
+  </nav>
+  <div class="game-body">
+    <div class="game-grid">
+      <div>
+        <div class="pcard idle" id="pcard-opp" style="margin-bottom:.45rem">
+          <div class="pcard-ava">🤖</div>
+          <div class="pcard-name" id="opp-name">Bot-1200</div>
+          <div class="pcard-elo" id="opp-elo">ELO 1200</div>
+          <div class="pcard-timer" id="timer-opp">1:00</div>
+        </div>
+        <div class="yield-live-box">
+          <div id="yield-flash-el" class="yield-flash hidden"></div>
+          <div class="yield-live-lbl">Yield Pool</div>
+          <div class="yield-live-val" id="live-pool">0.00000 SOL</div>
+          <div class="yield-live-usd" id="live-pool-usd">$0.00</div>
+          <div class="yield-live-note">growing every second</div>
+        </div>
+        <div class="mult-mini">
+          <div class="mult-mini-lbl">Your Multiplier</div>
+          <div class="mult-mini-val" id="game-mult">1.00×</div>
+        </div>
+        <div class="pcard myturn" id="pcard-me">
+          <div class="pcard-ava">🧠</div>
+          <div class="pcard-name">You</div>
+          <div class="pcard-elo" id="my-elo">ELO 1200</div>
+          <div class="pcard-timer" id="timer-me">1:00</div>
+        </div>
+      </div>
+      <div class="board-wrap">
+        <div class="board-meta">
+          <span class="bm" id="board-stake-lbl">0.02 SOL entry</span>
+          <div class="turn-badge white" id="turn-badge">◉ WHITE</div>
+          <span class="bm gold" id="board-mode-lbl">Bullet</span>
+        </div>
+        <div id="chess-board"></div>
+        <div class="file-row">
+          <div class="file-lbl">a</div><div class="file-lbl">b</div><div class="file-lbl">c</div><div class="file-lbl">d</div>
+          <div class="file-lbl">e</div><div class="file-lbl">f</div><div class="file-lbl">g</div><div class="file-lbl">h</div>
+        </div>
+        <div class="game-btns">
+          <button class="btn btn-ghost" onclick="offerDraw()">🤝 Draw</button>
+          <button class="btn btn-danger" onclick="resign()">🏳 Resign</button>
+          <button class="btn btn-success" onclick="debugEnd('win')">✓ Win</button>
+          <button class="btn btn-danger" onclick="debugEnd('loss')">✗ Loss</button>
+          <button class="btn btn-gold" onclick="debugEnd('draw')">≈ Draw</button>
+        </div>
+      </div>
+      <div class="game-sidebar-right">
+        <div class="move-log-box">
+          <div class="move-log-head">Move Log</div>
+          <div id="move-log-inner"><div style="font-size:.6rem;color:var(--mu)">Waiting...</div></div>
+        </div>
+        <div class="onchain-box">
+          <div class="move-log-head">On-Chain</div>
+          <div class="panel-row"><span class="key">Program</span><span class="val mono" style="font-size:.55rem">CS1ake..xK9</span></div>
+          <div class="panel-row"><span class="key">Network</span><span class="val" style="color:var(--bl)">Devnet</span></div>
+          <div class="panel-row"><span class="key">Source</span><span class="val gold">Jito</span></div>
+          <div class="panel-row" style="border:none"><span class="key">Entry</span><span class="val green mono" id="onchain-stake">0.02 SOL</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCREEN 6: RESULT ═══ -->
+<section class="screen" id="sc-result">
+  <div class="result-card">
+    <div class="result-icon-wrap" id="result-icon-wrap"><span id="result-icon">🏆</span></div>
+    <div class="result-title" id="result-title">VICTORY</div>
+    <div class="result-desc" id="result-desc">You won the yield pool.</div>
+    <div class="panel" style="margin-bottom:.9rem;text-align:left">
+      <div class="panel-head">Settlement</div>
+      <div class="panel-row"><span class="key">Entry fee paid</span><div class="val mono" id="r-principal">0.0200 SOL</div></div>
+      <div class="panel-row"><span class="key">Total yield pool</span><div><div class="val mono" id="r-pool">—</div><div class="sub" id="r-pool-usd">—</div></div></div>
+      <div class="panel-row"><span class="key">Your multiplier</span><div class="val gold mono" id="r-mult">—</div></div>
+      <div class="panel-row"><span class="key">Platform fee (0.5% → Jito)</span><div class="val red mono" id="r-fee">—</div></div>
+      <div class="earned-big">
+        <span class="earned-big-lbl" id="r-earned-lbl">Net gain</span>
+        <div class="earned-big-val"><div class="earned-sol" id="r-earned-sol">—</div><div class="earned-usd" id="r-earned-usd">—</div></div>
+      </div>
+    </div>
+    <div class="mult-badge" id="mult-badge" style="border:1px solid var(--br)">
+      <span id="mult-arrow" style="font-size:1rem">▲</span>
+      Mult: <strong id="mult-old" class="mono">1.00×</strong> → <strong id="mult-new" class="mono green">1.15×</strong>
+    </div>
+    <div class="panel" style="margin-bottom:1.3rem">
+      <div class="panel-head">Updated Account</div>
+      <div class="panel-row"><span class="key">New ELO</span><div class="val mono" id="r-elo">—</div></div>
+      <div class="panel-row"><span class="key">Win streak</span><div class="val gold" id="r-streak">—</div></div>
+      <div class="panel-row"><span class="key">New balance</span><div><div class="val gold mono" id="r-bal">—</div><div class="sub" id="r-bal-usd">—</div></div></div>
+      <div class="panel-row"><span class="key">Total yield (net)</span><div><div class="val green mono" id="r-total-yield">—</div><div class="sub" id="r-total-yield-usd">—</div></div></div>
+      <div class="panel-row" style="border:none;background:rgba(240,184,64,.04);border-radius:5px;margin-top:.4rem;padding:.4rem .3rem">
+        <span class="key" style="color:var(--go);font-weight:700">⏳ Epoch pts earned</span>
+        <div style="text-align:right"><div class="val mono" style="color:var(--go)" id="r-epoch-pts">—</div><div class="sub" id="r-epoch-cd">settles at next epoch</div></div>
+      </div>
+    </div>
+    <div class="result-btns">
+      <button class="btn btn-primary" style="flex:1.5;padding:.85rem;font-size:.8rem" onclick="playAgain()">⚡ Play Again</button>
+      <button class="btn btn-ghost" style="flex:1;padding:.85rem" onclick="goHome()">🏠 Lobby</button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONSTANTS — declared FIRST, before all usage
+══════════════════════════════════════════════ */
+const SOL_PRICE    = 200;
+const PLATFORM_FEE = 0.005;   // 0.5% — only fee, goes to Jito treasury
+const EPOCH_HOURS  = 48;
+const EPOCH_MS     = EPOCH_HOURS * 3600 * 1000;
+const SAVE_KEY     = "chesskate_v1";
+const ASSUMED_DAILY= 500;
+const SEED_SOL     = 3000;    // Treasury: 3000 SOL in Jito
+const JITO_BASE_APY= 0.088;
+const JITO_MEV_APY = 0.012;
+
+const MODES = [
+  {name:"Bullet", dur:60,  label:"1+0",  weight:0.6, id:"bullet"},
+  {name:"Blitz",  dur:180, label:"3+2",  weight:1.0, id:"blitz"},
+  {name:"Rapid",  dur:600, label:"10+0", weight:1.6, id:"rapid"},
+];
+
+/* ═══ JITO MATH ═══ */
+let T = { staked: SEED_SOL };
+const jitoAPY = () => parseFloat((JITO_BASE_APY + JITO_MEV_APY + (Math.random()-0.5)*0.004).toFixed(5));
+const epochHarvest = staked => parseFloat((staked * jitoAPY() / (365/2)).toFixed(8));
+const dailyFeeIncome = (mpd, entry) => parseFloat((mpd * entry * 2 * PLATFORM_FEE).toFixed(8));
+
+/* ═══ AUTH ═══ */
+const DEMO_USERS = [
+  {email:"aaa@gmail.com", password:"aaa111", name:"Player AAA", avatar:"♔"},
+  {email:"bbb@gmail.com", password:"bbb222", name:"Player BBB", avatar:"♕"},
+  {email:"ccc@gmail.com", password:"ccc333", name:"Player CCC", avatar:"♖"},
+  {email:"ddd@gmail.com", password:"ddd444", name:"Player DDD", avatar:"♗"},
+  {email:"eee@gmail.com", password:"eee555", name:"Player EEE", avatar:"♘"},
+];
+
+let AUTH = { loggedIn:false, user:null, saveKey:null };
+
+/* ═══ STATE ═══ */
+let S = {
+  wallet:null, bal:1.0, elo:1200,
+  wins:0, losses:0, draws:0, streak:0, mult:1.0, earned:0, hist:[],
+  stake:0.02, modeIdx:0,
+  pool:0, myTime:60, oppTime:60, myTurn:true, matchId:"", oppElo:1200,
+  board:null, sel:null, hints:[], lastMv:null,
+  moveLog:[], moveNum:0, done:false, clockI:null, botTmr:null,
+  myCaptures:0, oppCaptures:0, myMoves:0, oppMoves:0,
+  tStaked:SEED_SOL, tFees:0, tYieldPaid:0, tMatchCount:0,
+  profile:{
+    elo:1200, wins:0, totalGames:0, avgAccuracy:0,
+    peakStreak:0, upsetWins:0, daysActive:1, daysSinceFirst:1,
+    modesPlayed:new Set(), tournamentWins:0, pps:0.50, ppsHistory:[],
+  },
+  epoch:{
+    originTs:0, lastSettled:-1, pendingPoints:0, totalEpochPoints:0,
+    pendingInstant:0, totalEarned:0, lastHarvest:0, lastPayout:0,
+    history:[], epochMatchCount:0,
+  },
+};
+
+/* ═══ HELPERS ═══ */
+const f   = (n,d=4) => Number(n).toFixed(d);
+const usd = n => `$${(Math.abs(Number(n))*SOL_PRICE).toFixed(2)}`;
+const clk = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+const ri  = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const rnd = (a,b) => Math.random()*(b-a)+a;
+const mkA = () => { const c="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; return Array.from({length:44},()=>c[ri(0,c.length-1)]).join(""); };
+const el  = id => document.getElementById(id);
+const setText = (id,v) => { const e=el(id); if(e) e.textContent=v; };
+
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  const sc = el(id); if(sc) sc.classList.add("active");
+}
+
+let toastTimer=null;
+function toast(msg,type="ok"){
+  const t=el("toast"); t.textContent=msg; t.className="show "+type;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className="",3500);
+}
+
+/* ═══ PERSIST — per user account ═══ */
+function saveGame(){
+  if(!AUTH.saveKey) return;
+  try{
+    const save={
+      bal:S.bal, elo:S.elo,
+      wins:S.wins, losses:S.losses, draws:S.draws,
+      streak:S.streak, mult:S.mult, earned:S.earned, hist:S.hist.slice(0,50),
+      tStaked:S.tStaked, tFees:S.tFees, tYieldPaid:S.tYieldPaid, tMatchCount:S.tMatchCount,
+      profile:{...S.profile, modesPlayed:[...(S.profile.modesPlayed||[])], ppsHistory:(S.profile.ppsHistory||[]).slice(-50)},
+      epoch:{...S.epoch, history:S.epoch.history.slice(0,20)},
+    };
+    localStorage.setItem(AUTH.saveKey, JSON.stringify(save));
+  }catch(e){}
+}
+
+function loadUserData(email){
+  AUTH.saveKey = SAVE_KEY + "_" + email.replace(/[@.]/g,"_");
+  try{
+    const raw = localStorage.getItem(AUTH.saveKey);
+    if(raw){
+      const d = JSON.parse(raw);
+      S.bal     = d.bal     ?? 1.0;
+      S.elo     = d.elo     ?? 1200;
+      S.wins    = d.wins    ?? 0;
+      S.losses  = d.losses  ?? 0;
+      S.draws   = d.draws   ?? 0;
+      S.streak  = d.streak  ?? 0;
+      S.mult    = d.mult    ?? 1.0;
+      S.earned  = d.earned  ?? 0;
+      S.hist    = d.hist    ?? [];
+      S.tStaked = d.tStaked ?? SEED_SOL;
+      S.tFees   = d.tFees   ?? 0;
+      S.tYieldPaid = d.tYieldPaid ?? 0;
+      S.tMatchCount= d.tMatchCount?? 0;
+      if(d.profile){
+        S.profile = {...S.profile, ...d.profile, modesPlayed:new Set(d.profile.modesPlayed||[]), ppsHistory:d.profile.ppsHistory||[]};
+      }
+      if(d.epoch) S.epoch = {...S.epoch, ...d.epoch};
+    } else {
+      // Fresh account — $200 worth = 1 SOL
+      S.bal=1.0; S.earned=0; S.elo=1200; S.wins=0; S.losses=0;
+      S.draws=0; S.streak=0; S.mult=1.0; S.hist=[];
+      S.tStaked=SEED_SOL; S.tFees=0; S.tYieldPaid=0; S.tMatchCount=0;
+      S.profile={elo:1200,wins:0,totalGames:0,avgAccuracy:0,peakStreak:0,upsetWins:0,
+        daysActive:1,daysSinceFirst:1,modesPlayed:new Set(),tournamentWins:0,pps:0.50,ppsHistory:[]};
+      S.epoch={originTs:Date.now(),lastSettled:-1,pendingPoints:0,totalEpochPoints:0,
+        pendingInstant:0,totalEarned:0,lastHarvest:0,lastPayout:0,history:[],epochMatchCount:0};
+    }
+  }catch(e){
+    S.bal=1.0;
+  }
+  if(!S.epoch.originTs) S.epoch.originTs = Date.now();
+  T.staked = S.tStaked;
+}
+
+function nukeGame(){ try{ localStorage.removeItem(AUTH.saveKey); }catch(e){} }
+
+/* ═══ AUTH ═══ */
+function tryLogin(){
+  const email = (el("login-email").value||"").trim().toLowerCase();
+  const pass  = (el("login-pass").value||"").trim();
+  const errEl = el("login-err");
+  errEl.textContent = "";
+  if(!email || !pass){ errEl.textContent="Please enter email and password"; return; }
+
+  const user = DEMO_USERS.find(u => u.email===email && u.password===pass);
+  if(!user){
+    errEl.textContent = "Invalid email or password";
+    el("login-pass").value = "";
+    el("login-box").style.animation="none";
+    setTimeout(()=>{el("login-box").style.animation="loginShake .4s ease";},10);
+    return;
+  }
+
+  AUTH = { loggedIn:true, user, saveKey:null };
+  loadUserData(email);   // sets AUTH.saveKey and loads/initialises S
+
+  toast(`Welcome, ${user.name}! ♟`,"ok");
+
+  // Update connect wallet screen with user info
+  setText("connect-avatar", user.avatar);
+  setText("connect-username", user.name);
+  setText("connect-bal", f(S.bal,4)+" SOL ("+usd(S.bal)+")");
+
+  startEpochTicker();
+  showScreen("sc-connect");  // → connect wallet next
+}
+
+function quickLogin(email,pass){
+  el("login-email").value=email;
+  el("login-pass").value=pass;
+  tryLogin();
+}
+
+function togglePW(){
+  const pw=el("login-pass"), btn=el("toggle-pw");
+  if(pw.type==="password"){pw.type="text";btn.textContent="🙈";}
+  else{pw.type="password";btn.textContent="👁";}
+}
+
+function logout(){
+  saveGame();
+  AUTH={loggedIn:false,user:null,saveKey:null};
+  S.wallet=null;
+  showScreen("sc-login");
+}
+
+/* ═══ WALLET ═══ */
+function openWalletFlow(){
+  el("wallet-grid-main").style.opacity="0.4";
+  el("phantom-options").style.display="block";
+}
+function closeWalletFlow(){
+  el("wallet-grid-main").style.opacity="1";
+  el("phantom-options").style.display="none";
+}
+
+async function connectWallet(name){
+  closeWalletFlow();
+  if(!AUTH.loggedIn){ toast("Please login first","err"); showScreen("sc-login"); return; }
+
+  if(name==="Demo"||name==="Phantom-Mobile"){
+    const addr=name==="Demo"?"DEMO"+mkA().slice(0,36):"MOBILE"+mkA().slice(0,34);
+    S.wallet={name,addr};
+    if(!S.epoch.originTs) S.epoch.originTs=Date.now();
+    saveGame();
+    toast(name==="Demo"?"🎮 Demo mode — play without a real wallet":"📱 Phantom Mobile connected ✓","ok");
+    setTimeout(()=>{refreshLobby();showScreen("sc-lobby");},500);
+    return;
+  }
+  toast(`Connecting ${name}...`,"info");
+  let addr=mkA();
+  try{
+    let p=null;
+    if(name==="Phantom") p=window.solana||window.phantom?.solana;
+    if(name==="Backpack") p=window.backpack;
+    if(name==="Solflare") p=window.solflare;
+    if(p){const r=await p.connect();addr=r.publicKey.toString();}
+    else toast(`${name} not detected — using simulated wallet`,"info");
+  }catch(e){ toast(`${name} simulated (install wallet for real devnet)`,"info"); }
+
+  S.wallet={name,addr};
+  if(!S.epoch.originTs) S.epoch.originTs=Date.now();
+  saveGame();
+  toast(`${name} connected ✓`,"ok");
+  setTimeout(()=>{refreshLobby();showScreen("sc-lobby");},500);
+}
+
+/* ═══ PPS ═══ */
+function computePPS(p){
+  const total=p.totalGames||0; if(total===0) return 0.50;
+  const eloScore   =Math.min(1.0,(p.elo||1200)/2000);
+  const winScore   =total>0?Math.min(1.0,(p.wins||0)/total):0;
+  const accScore   =Math.min(1.0,p.avgAccuracy||0);
+  const volScore   =Math.min(1.0,Math.log10(total+1)/Math.log10(1000));
+  const streakScore=Math.min(1.0,(p.peakStreak||0)/10);
+  const upsetScore =Math.min(1.0,(p.upsetWins||0)/Math.max(p.wins||1,1));
+  const consistScore=Math.min(1.0,(p.daysActive||1)/(p.daysSinceFirst||1));
+  const diversScore=((p.modesPlayed||new Set()).size||1)/3;
+  const tournBonus =Math.min(0.5,(p.tournamentWins||0)*0.1);
+  const raw=eloScore*.35+winScore*.20+volScore*.15+accScore*.10+consistScore*.08+streakScore*.06+upsetScore*.04+diversScore*.02+tournBonus;
+  return parseFloat(Math.min(5.0,Math.max(0.5,raw*3.5)).toFixed(3));
+}
+
+function ppsTier(pps){
+  if(pps<0.8) return{name:"Seedling",icon:"🌱",color:"#888888"};
+  if(pps<1.3) return{name:"Copper",  icon:"🟤",color:"#b87333"};
+  if(pps<1.8) return{name:"Silver",  icon:"⚪",color:"#a8a9ad"};
+  if(pps<2.4) return{name:"Gold",    icon:"🟡",color:"#f0b840"};
+  if(pps<3.0) return{name:"Platinum",icon:"🔵",color:"#00e5a0"};
+  if(pps<3.8) return{name:"Diamond", icon:"💎",color:"#4d8fff"};
+  return           {name:"Master",  icon:"🔴",color:"#ff3355"};
+}
+
+/* ═══ YIELD CALC ═══ */
+function computeInstantYield({skillScore,pps,modeWeight,type,myElo,oppElo,entry}){
+  const daily  =dailyFeeIncome(ASSUMED_DAILY,entry);
+  const perMatch=daily/ASSUMED_DAILY;
+  const skillN =Math.min(1.0,skillScore/2.0);
+  const ppsNorm=Math.min(1.0,pps/5.0);
+  const typeB  =type==="win"?1.4:type==="loss"?0.6:1.0;
+  const eloGap =oppElo-myElo;
+  const upsetB =(type==="win"&&eloGap>50)?1+Math.min(0.4,eloGap/400):1.0;
+  return parseFloat((perMatch*(0.40+0.60*skillN)*(0.5+0.5*ppsNorm)*typeB*upsetB).toFixed(8));
+}
+
+function computeEpochPoints({skillScore,pps,modeWeight,type,myElo,oppElo}){
+  const skillN=Math.min(1.0,skillScore/2.0);
+  const typeB =type==="win"?1.5:type==="loss"?0.5:1.0;
+  const eloGap=oppElo-myElo;
+  const upsetB=(type==="win"&&eloGap>50)?1+Math.min(0.6,eloGap/350):1.0;
+  return parseFloat(((0.30+0.70*skillN)*pps*modeWeight*typeB*upsetB).toFixed(6));
+}
+
+/* perMatchBudget — budget from treasury for instant yield per match */
+function perMatchBudget(staked, modeWeight){
+  const dailyYield = staked * jitoAPY() / 365;
+  return parseFloat((dailyYield / ASSUMED_DAILY * modeWeight).toFixed(8));
+}
+
+function computeSkillScores(type){
+  const myMv=Math.max(S.myMoves,1), opMv=Math.max(S.oppMoves,1);
+  const accMe =Math.min(0.5,(S.myCaptures/myMv)*1.5);
+  const accOpp=Math.min(0.5,(S.oppCaptures/opMv)*1.5);
+  const spdMe =Math.max(0,Math.min(0.5,0.5-myMv*0.005));
+  const spdOpp=Math.max(0,Math.min(0.5,0.5-opMv*0.005));
+  return{scoreMe:(type==="win"?1:0)+accMe+spdMe, scoreOpp:(type==="loss"?1:0)+accOpp+spdOpp, accMe, spdMe};
+}
+
+function updateProfileAccuracy(accScore){
+  const n=S.profile.totalGames||1;
+  S.profile.avgAccuracy=parseFloat(((S.profile.avgAccuracy||0)*(n-1)/n+accScore/n).toFixed(6));
+}
+
+/* ═══ EPOCH ═══ */
+function getEpochState(){
+  const now=Date.now(), origin=S.epoch.originTs||now, elapsed=now-origin;
+  const current=Math.floor(elapsed/EPOCH_MS), nextAt=origin+(current+1)*EPOCH_MS;
+  return{current,nextAt,msLeft:nextAt-now,now};
+}
+function epochCountdownStr(msLeft){
+  const h=Math.floor(msLeft/3600000),m=Math.floor((msLeft%3600000)/60000),s=Math.floor((msLeft%60000)/1000);
+  return`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+function checkAndSettleEpoch(){
+  const es=getEpochState();
+  if(es.current<=S.epoch.lastSettled) return false;
+  const pendingPts=S.epoch.pendingPoints||0;
+  if(pendingPts<=0){S.epoch.lastSettled=es.current;saveGame();return false;}
+  const harvest=epochHarvest(S.tStaked);
+  const totalPts=S.epoch.totalEpochPoints||pendingPts;
+  const myShare=pendingPts/totalPts;
+  const myPayout=parseFloat((harvest*myShare).toFixed(8));
+  S.bal=parseFloat((S.bal+myPayout).toFixed(8));
+  S.earned=parseFloat((S.earned+myPayout).toFixed(8));
+  S.tYieldPaid=parseFloat((S.tYieldPaid+myPayout).toFixed(8));
+  S.epoch.totalEarned=parseFloat(((S.epoch.totalEarned||0)+myPayout).toFixed(8));
+  S.epoch.lastSettled=es.current;
+  S.epoch.lastHarvest=harvest;
+  S.epoch.lastPayout=myPayout;
+  S.epoch.pendingPoints=0;S.epoch.totalEpochPoints=0;
+  S.epoch.history.unshift({epoch:es.current,harvest,myShare:parseFloat((myShare*100).toFixed(2)),points:pendingPts,payout:myPayout,date:new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})});
+  if(S.epoch.history.length>20)S.epoch.history.pop();
+  saveGame(); return myPayout;
+}
+let epochTickI=null;
+function startEpochTicker(){
+  clearInterval(epochTickI);
+  epochTickI=setInterval(()=>{
+    const es=getEpochState(), cdStr=epochCountdownStr(es.msLeft);
+    document.querySelectorAll(".epoch-countdown").forEach(e=>e.textContent=cdStr);
+    const settled=checkAndSettleEpoch();
+    if(settled&&settled>0){toast(`🎉 Epoch settled! +${f(settled,6)} SOL from Jito`,"ok");refreshLobby();showEpochSettlementBanner(settled);}
+  },1000);
+}
+function showEpochSettlementBanner(amount){
+  const banner=el("epoch-banner"); if(!banner)return;
+  banner.innerHTML=`<div style="background:linear-gradient(135deg,rgba(0,229,160,.12),rgba(0,229,160,.04));border:1px solid rgba(0,229,160,.3);border-radius:8px;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem"><div style="font-size:1.4rem">🎉</div><div style="flex:1"><div style="font-size:.75rem;font-weight:700;color:var(--gn)">Epoch Yield Settled!</div><div style="font-size:.62rem;color:var(--mu);margin-top:.1rem">Your Jito epoch bonus has been paid to your balance</div></div><div style="text-align:right"><div style="font-size:.85rem;font-weight:700;color:var(--gn);font-family:'JetBrains Mono',monospace">+${f(amount,6)} SOL</div><div style="font-size:.58rem;color:var(--mu)">+$${(amount*SOL_PRICE).toFixed(3)}</div></div><div style="cursor:pointer;color:var(--mu);font-size:.7rem" onclick="this.parentElement.parentElement.innerHTML=''">✕</div></div>`;
+}
+
+/* ═══ UI REFRESH ═══ */
+function refreshLobby(){
+  setText("nav-sol",  f(S.bal)+" SOL");
+  setText("nav-usd",  usd(S.bal));
+  setText("nav-addr", S.wallet?S.wallet.addr.slice(0,4)+"..."+S.wallet.addr.slice(-4):"—");
+  if(el("nav-username")) el("nav-username").textContent=AUTH.user?"· "+AUTH.user.name:"";
+  if(el("nav-username2")) el("nav-username2").textContent=AUTH.user?"· "+AUTH.user.name:"";
+  setText("lob-bal",  f(S.bal)+" SOL");
+  setText("lob-usd",  usd(S.bal));
+  const tier=ppsTier(S.profile.pps||0.5);
+  setText("lob-mult", S.mult.toFixed(2)+"× · "+tier.icon+" PPS "+f(S.profile.pps||0.5,2));
+  setText("stat-w",   S.wins);
+  setText("stat-l",   S.losses);
+  setText("stat-d",   S.draws);
+  setText("stat-elo", S.elo);
+  setText("stat-streak", S.streak+(S.streak>=3?" 🔥":""));
+  const se=el("stat-earned");
+  if(se){se.textContent=(S.earned>=0?"+":"")+f(S.earned,5)+" SOL";se.style.color=S.earned>=0?"var(--gn)":"var(--rd)";}
+  setText("stat-earned-usd",(S.earned>=0?"":"−")+"$"+Math.abs(S.earned*SOL_PRICE).toFixed(2));
+  setText("stat-bal",   f(S.bal)+" SOL");
+  setText("stat-bal-usd", usd(S.bal));
+  setText("mult-bar-val", S.mult.toFixed(2)+"×");
+  const pct=Math.max(2,((S.mult-0.5)/2.5)*100);
+  if(el("mult-fill")) el("mult-fill").style.width=pct+"%";
+  if(!el("stake-inp").value||parseFloat(el("stake-inp").value)>S.bal) el("stake-inp").value="0.02";
+  updatePreview(); renderHistory(); renderPPSPanel(); renderEpochPanel();
+}
+
+function refreshGameNav(){
+  setText("game-nav-sol", f(S.bal)+" SOL");
+  setText("game-nav-usd", usd(S.bal));
+  setText("game-mult",    S.mult.toFixed(2)+"×");
+}
+
+function updatePreview(){
+  const entry=parseFloat(el("stake-inp")?.value)||0.02;
+  const mode=MODES[S.modeIdx];
+  const pool=entry*2, pfee=pool*PLATFORM_FEE, rem=pool-pfee;
+  const pps=computePPS(S.profile);
+  const winPool=rem*0.75;
+  const winIY=computeInstantYield({skillScore:1.5,pps,modeWeight:mode.weight,type:"win",myElo:S.elo,oppElo:S.elo+50,entry});
+  const netWin=(winPool+winIY)-entry;
+  const lossPool=rem*0.25;
+  const lossIY=computeInstantYield({skillScore:0.4,pps,modeWeight:mode.weight,type:"loss",myElo:S.elo,oppElo:S.elo-50,entry});
+  const netLoss=(lossPool+lossIY)-entry;
+  const drawPool=rem*0.50;
+  const drawIY=computeInstantYield({skillScore:0.8,pps,modeWeight:mode.weight,type:"draw",myElo:S.elo,oppElo:S.elo,entry});
+  const netDraw=(drawPool+drawIY)-entry;
+  setText("stake-usd-display",usd(entry));
+  setText("prev-mode-name",mode.name); setText("prev-mode-label",mode.label);
+  setText("prev-pool",f(pool,4)+" SOL");
+  setText("prev-win",(netWin>=0?"+":"")+f(netWin,4)+" SOL + epoch pts");
+  setText("prev-win-usd",(netWin>=0?"":"−")+"$"+Math.abs(netWin*SOL_PRICE).toFixed(2));
+  setText("prev-loss",(netLoss>=0?"+":"")+f(netLoss,4)+" SOL + epoch pts");
+  setText("prev-loss-usd",(netLoss>=0?"":"−")+"$"+Math.abs(netLoss*SOL_PRICE).toFixed(2));
+  setText("prev-draw",(netDraw>=0?"+":"")+f(netDraw,4)+" SOL + epoch pts");
+  setText("prev-draw-usd",(netDraw>=0?"":"−")+"$"+Math.abs(netDraw*SOL_PRICE).toFixed(2));
+}
+
+function renderHistory(){
+  const list=el("hist-list"); setText("hist-count",S.hist.length);
+  if(!S.hist.length){list.innerHTML=`<div style="font-size:.7rem;color:var(--mu);text-align:center;padding:1.2rem">No matches yet — play to earn!</div>`;return;}
+  list.innerHTML=S.hist.map(h=>{
+    const net=h.earned,pos=net>=0;
+    const ht=ppsTier(h.pps||0.5);
+    return`<div class="hist-item"><div class="hist-badge ${h.type.toUpperCase()}">${h.type.toUpperCase()}</div><div class="hist-opp"><div>${h.opp} <span style="font-size:.52rem;color:${ht.color}">${ht.icon}${f(h.pps||0.5,2)}</span></div><div class="hist-date">${h.date}</div></div><div class="hist-earned"><div class="hist-sol ${pos?"green":"red"}">${pos?"+":""}${f(net,4)} SOL</div><div class="hist-usd">${pos?"":"−"}$${Math.abs(net*SOL_PRICE).toFixed(2)}</div></div></div>`;
+  }).join("");
+}
+
+function renderPPSPanel(){
+  const panel=el("pps-panel"); if(!panel)return;
+  const p=S.profile, pps=computePPS(p); S.profile.pps=pps;
+  const tier=ppsTier(pps), total=p.totalGames||0;
+  const eloScore=Math.min(1.0,(p.elo||1200)/2000);
+  const winScore=total>0?Math.min(1.0,(p.wins||0)/total):0;
+  const accScore=Math.min(1.0,p.avgAccuracy||0);
+  const volScore=Math.min(1.0,Math.log10(total+1)/Math.log10(1000));
+  const streakScore=Math.min(1.0,(p.peakStreak||0)/10);
+  const upsetScore=Math.min(1.0,(p.upsetWins||0)/Math.max(p.wins||1,1));
+  const consistScore=Math.min(1.0,(p.daysActive||1)/(p.daysSinceFirst||1));
+  const diversScore=((p.modesPlayed||new Set()).size||1)/3;
+  function bar(val,color){const pct=Math.round(Math.min(100,val*100));return`<div style="flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color};border-radius:2px;transition:width .7s ease"></div></div>`;}
+  function row(label,val,score,color,w){return`<div style="margin-bottom:.5rem"><div style="display:flex;justify-content:space-between;font-size:.57rem;margin-bottom:.2rem"><span style="color:var(--mu)">${label} <span style="font-size:.5rem;opacity:.6">${(w*100).toFixed(0)}%</span></span><span style="color:${color};font-weight:700">${val}</span></div><div style="display:flex;gap:.35rem;align-items:center">${bar(score,color)}<span style="font-size:.5rem;color:var(--mu);width:2rem;text-align:right">${(score*100).toFixed(0)}%</span></div></div>`;}
+  panel.innerHTML=`<div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem"><span>📈 Player Profile Score</span><span style="font-size:1rem;font-weight:800;color:${tier.color}">${tier.icon} ${pps.toFixed(2)}</span></div><div style="background:rgba(255,255,255,.03);border:1px solid var(--br);border-radius:6px;padding:.6rem;text-align:center;margin-bottom:.7rem"><div style="font-size:.55rem;color:var(--mu);text-transform:uppercase;letter-spacing:.05em">Yield Tier</div><div style="font-size:1.15rem;font-weight:800;color:${tier.color};margin:.2rem 0">${tier.icon} ${tier.name}</div><div style="font-size:.55rem;color:var(--mu)">PPS ${pps.toFixed(3)} · scales Jito epoch allocation</div></div>${row("ELO Rating",`${p.elo||1200}`,eloScore,"#f0b840",0.35)}${row("Win Rate",`${(winScore*100).toFixed(1)}%`,winScore,"#00e5a0",0.20)}${row("Volume",`${total} games`,volScore,"#4d8fff",0.15)}${row("Accuracy",`${(accScore*100).toFixed(1)}%`,accScore,"#a78bfa",0.10)}${row("Consistency",`${(consistScore*100).toFixed(0)}%`,consistScore,"#fb923c",0.08)}${row("Peak Streak",`${p.peakStreak||0}`,streakScore,"#fbbf24",0.06)}${row("Upset Rate",`${(upsetScore*100).toFixed(0)}%`,upsetScore,"#f87171",0.04)}${row("Mode Diversity",`${(p.modesPlayed||new Set()).size||1}/3`,diversScore,"#34d399",0.02)}`;
+}
+
+function renderEpochPanel(){
+  const panel=el("treasury-panel"); if(!panel)return;
+  const es=getEpochState(), harvest=epochHarvest(S.tStaked);
+  const pps=computePPS(S.profile), pendPts=S.epoch.pendingPoints||0;
+  const totPts=Math.max(S.epoch.totalEpochPoints||1,pendPts);
+  const myShare=pendPts/totPts;
+  const estPayout=parseFloat((harvest*myShare).toFixed(8));
+  const tier=ppsTier(pps), apy=jitoAPY();
+  panel.innerHTML=`<div class="panel-head" style="display:flex;align-items:center;justify-content:space-between"><span>🏦 Jito Epoch Yield</span><span style="font-size:.6rem;color:var(--mu)">48h cycles</span></div><div style="background:linear-gradient(135deg,rgba(0,229,160,.07),rgba(0,229,160,.02));border:1px solid rgba(0,229,160,.2);border-radius:7px;padding:.7rem;text-align:center;margin-bottom:.7rem"><div style="font-size:.55rem;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem">Next Epoch Settlement</div><div class="epoch-countdown" style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--gn);letter-spacing:.1em">${epochCountdownStr(es.msLeft)}</div><div style="font-size:.55rem;color:var(--mu);margin-top:.2rem">Epoch #${es.current+1} · Jito harvest distributes automatically</div></div><div style="background:rgba(240,184,64,.05);border:1px solid rgba(240,184,64,.2);border-radius:7px;padding:.7rem;margin-bottom:.7rem"><div style="font-size:.6rem;font-weight:700;color:var(--go)">⏳ Pending Epoch Yield</div><div style="font-size:1.1rem;font-weight:700;color:var(--go);font-family:'JetBrains Mono',monospace;margin:.3rem 0">~${f(estPayout,7)} SOL</div><div style="font-size:.58rem;color:var(--mu)">${f(pendPts,4)} pts · ${(myShare*100).toFixed(3)}% of epoch · harvesting ${f(harvest,6)} SOL</div></div><div class="panel-row"><span class="key">Treasury staked</span><span class="val mono">${f(S.tStaked,1)} SOL</span></div><div class="panel-row"><span class="key">Jito APY</span><span class="val mono" style="color:var(--gn)">${(apy*100).toFixed(2)}%</span></div><div class="panel-row" style="border-bottom:none"><span class="key">Lifetime epoch earned</span><span class="val mono" style="color:var(--go)">+${f(S.epoch.totalEarned||0,6)} SOL</span></div>`;
+}
+
+/* ═══ MATCHMAKING ═══ */
+function setStake(v){
+  el("stake-inp").value=v;
+  document.querySelectorAll(".qbtn").forEach(b=>{b.classList.remove("active");if(parseFloat(b.textContent)===v)b.classList.add("active");});
+  updatePreview();
+}
+function selectMode(idx){
+  S.modeIdx=idx;
+  document.querySelectorAll(".mode-card").forEach((c,i)=>{
+    c.classList.toggle("active",i===idx);
+    const ch=c.querySelector(".mode-check");
+    if(ch){i===idx?ch.classList.remove("hidden"):ch.classList.add("hidden");}
+  });
+  updatePreview(); renderPPSPanel(); renderEpochPanel();
+}
+
+function findMatch(){
+  if(!S.wallet){toast("Connect your wallet first","err");showScreen("sc-connect");return;}
+  const entry=parseFloat(el("stake-inp").value)||0.02;
+  if(entry<=0){toast("Enter a valid entry fee","err");return;}
+  if(entry>S.bal){toast("Insufficient balance","err");return;}
+  S.stake=entry; S.matchId="SM-"+ri(10000,99999);
+  S.oppElo=Math.max(400,S.elo+ri(-150,150));
+  S.bal=parseFloat((S.bal-entry).toFixed(8));
+  const pf=parseFloat((entry*2*PLATFORM_FEE).toFixed(8));
+  S.tFees=parseFloat((S.tFees+pf).toFixed(8));
+  S.tStaked=parseFloat((S.tStaked+pf).toFixed(8));
+  T.staked=S.tStaked;
+  S.profile.modesPlayed=S.profile.modesPlayed||new Set();
+  S.profile.modesPlayed.add(MODES[S.modeIdx].id);
+  setText("mm-stake",f(entry,4)+" SOL");
+  setText("mm-mode",MODES[S.modeIdx].name);
+  setText("mm-elo",S.elo);
+  showScreen("sc-mm");
+  toast("Entry locked · 0.5% fee → Jito treasury ✓","ok");
+  setTimeout(()=>startGame(),1500+Math.random()*800);
+}
+
+function cancelMatch(){
+  // Refund
+  S.bal=parseFloat((S.bal+S.stake).toFixed(8));
+  saveGame(); refreshLobby(); showScreen("sc-lobby");
+  toast("Match cancelled — entry refunded","info");
+}
+
+/* ═══ CHESS ENGINE ═══ */
+const SYM={wK:"♔",wQ:"♕",wR:"♖",wB:"♗",wN:"♘",wP:"♙",bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"};
+const COL="abcdefgh";
+const PIECE_VAL={K:0,Q:9,R:5,B:3,N:3,P:1};
+
+function newBoard(){
+  const b=Array(8).fill(null).map(()=>Array(8).fill(null));
+  "RNBQKBNR".split("").forEach((t,c)=>{b[0][c]={s:"b",t};b[1][c]={s:"b",t:"P"};b[6][c]={s:"w",t:"P"};b[7][c]={s:"w",t};});
+  return b;
+}
+function getLegal(b,r,c){
+  const p=b[r][c];if(!p)return[];
+  const{s,t}=p,op=s==="w"?"b":"w",mv=[];
+  const push=(tr,tc)=>{if(tr<0||tr>7||tc<0||tc>7)return false;const x=b[tr][tc];if(x&&x.s===s)return false;mv.push([tr,tc]);return!x;};
+  if(t==="P"){const d=s==="w"?-1:1,st=s==="w"?6:1;if(r+d>=0&&r+d<=7&&!b[r+d]?.[c]){mv.push([r+d,c]);if(r===st&&!b[r+2*d]?.[c])mv.push([r+2*d,c]);}[-1,1].forEach(dc=>{if(c+dc>=0&&c+dc<=7&&r+d>=0&&r+d<=7&&b[r+d]?.[c+dc]?.s===op)mv.push([r+d,c+dc]);});}
+  if(t==="R"||t==="Q")[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{for(let i=1;i<8;i++)if(!push(r+dr*i,c+dc*i))break;});
+  if(t==="B"||t==="Q")[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr,dc])=>{for(let i=1;i<8;i++)if(!push(r+dr*i,c+dc*i))break;});
+  if(t==="N")[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>push(r+dr,c+dc));
+  if(t==="K")[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc])=>push(r+dr,c+dc));
+  return mv;
+}
+function applyMove(b,fr,fc,tr,tc){
+  const n=b.map(r=>[...r]);n[tr][tc]=n[fr][fc];n[fr][fc]=null;
+  if(n[tr][tc]?.t==="P"&&tr===0)n[tr][tc]={s:"w",t:"Q"};
+  if(n[tr][tc]?.t==="P"&&tr===7)n[tr][tc]={s:"b",t:"Q"};
+  return n;
+}
+function botPick(b){
+  const mv=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]?.s==="b")getLegal(b,r,c).forEach(([tr,tc])=>mv.push([r,c,tr,tc]));
+  if(!mv.length)return null;
+  const cap=mv.filter(m=>b[m[2]][m[3]]?.s==="w");
+  return cap.length&&Math.random()<0.7?cap[ri(0,cap.length-1)]:mv[ri(0,mv.length-1)];
+}
+function hasMoves(b,side){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]?.s===side&&getLegal(b,r,c).length>0)return true;return false;}
+function countMaterial(b,side){let t=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(p&&p.s===side&&p.t!=="K")t+=PIECE_VAL[p.t]||0;}return t;}
+function countMobility(b,side){let m=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]?.s===side)m+=getLegal(b,r,c).length;return m;}
+function kingInCheck(b,side){
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    if(b[r][c]?.s===side&&b[r][c]?.t==="K"){
+      const opp=side==="w"?"b":"w";
+      for(let ar=0;ar<8;ar++)for(let ac=0;ac<8;ac++)if(b[ar][ac]?.s===opp&&getLegal(b,ar,ac).some(([tr,tc])=>tr===r&&tc===c))return true;
+    }
+  }
+  return false;
+}
+function evaluateBoardPosition(){
+  const myMat=countMaterial(S.board,"w"),oppMat=countMaterial(S.board,"b");
+  const myMob=countMobility(S.board,"w"),oppMob=countMobility(S.board,"b");
+  const capDiff=S.myCaptures-S.oppCaptures,moveDiff=S.oppMoves-S.myMoves;
+  const myInCheck=kingInCheck(S.board,"w"),oppInCheck=kingInCheck(S.board,"b");
+  const score=(myMat-oppMat)*3+(myMob-oppMob)*0.5+capDiff*2+moveDiff*0.3+(oppInCheck?2:0)+(myInCheck?-2:0);
+  return{score,myMat,oppMat,matDiff:myMat-oppMat,myMob,oppMob,capDiff,moveDiff,myInCheck,oppInCheck};
+}
+function resolveTimeout(who){
+  const ev=evaluateBoardPosition();
+  let adj=ev.score+(who==="mine"?-1.5:1.5);
+  let outcome,reason;
+  if(Math.abs(adj)<1.0){outcome="draw";reason="timeout-draw";}
+  else if(adj>0){outcome="win";reason="timeout-position";}
+  else{outcome="loss";reason="timeout-position";}
+  const posStr=adj>1?"stronger position":adj<-1?"weaker position":"equal position";
+  const matStr=ev.matDiff>0?`+${ev.matDiff} material`:ev.matDiff<0?`${ev.matDiff} material`:"equal material";
+  toast(`⏱ ${who==="mine"?"Your":"Opponent's"} time expired · ${matStr} · ${posStr} → ${outcome.toUpperCase()}`,outcome==="win"?"ok":outcome==="draw"?"info":"err");
+  return{outcome,reason};
+}
+
+function renderBoard(){
+  if(!S.board)return;
+  const bd=el("chess-board");if(!bd)return;bd.innerHTML="";
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const sq=document.createElement("div");
+    const p=S.board[r][c];
+    const iSel=S.sel&&S.sel[0]===r&&S.sel[1]===c;
+    const iHnt=S.hints.some(m=>m[0]===r&&m[1]===c);
+    const iLast=S.lastMv&&((S.lastMv[0]===r&&S.lastMv[1]===c)||(S.lastMv[2]===r&&S.lastMv[3]===c));
+    sq.className="sq "+((r+c)%2===0?"lt":"dk")+(iSel?" sel":"")+(iLast&&!iSel?" lm":"")+(iHnt&&!p?" hint":"")+(iHnt&&p?" hint-cap":"");
+    if(p){const sp=document.createElement("span");sp.className="piece";sp.textContent=SYM[p.s+p.t];sq.appendChild(sp);}
+    sq.addEventListener("click",()=>clickSq(r,c));bd.appendChild(sq);
+  }
+}
+function clickSq(r,c){
+  if(S.done||!S.myTurn)return;
+  const p=S.board[r][c];
+  if(S.sel){const[sr,sc]=S.sel;if(S.hints.some(m=>m[0]===r&&m[1]===c)){doMove(sr,sc,r,c,"w");S.sel=null;S.hints=[];return;}S.sel=null;S.hints=[];}
+  if(p?.s==="w"){S.sel=[r,c];S.hints=getLegal(S.board,r,c);}
+  renderBoard();
+}
+function doMove(fr,fc,tr,tc,side){
+  const captured=S.board[tr][tc];
+  S.board=applyMove(S.board,fr,fc,tr,tc);S.lastMv=[fr,fc,tr,tc];
+  const piece=S.board[tr][tc];
+  const note=(SYM[piece?.s+piece?.t]||"")+COL[fc]+(8-fr)+"→"+COL[tc]+(8-tr);
+  if(side==="w"){S.myMoves++;if(captured)S.myCaptures++;S.moveNum++;S.moveLog.push({n:S.moveNum,w:note,b:""});}
+  else{S.oppMoves++;if(captured)S.oppCaptures++;if(S.moveLog.length>0)S.moveLog[S.moveLog.length-1].b=note;}
+  updateMoveLog();renderBoard();
+  const op=side==="w"?"b":"w";
+  if(!hasMoves(S.board,op)){endGame(side==="w"?"win":"loss","checkmate");return;}
+  if(side==="w"){
+    S.myTurn=false;updateTurnUI();clearTimeout(S.botTmr);
+    S.botTmr=setTimeout(()=>{
+      if(S.done)return;const bm=botPick(S.board);
+      if(!bm){endGame("win","no-moves");return;}
+      doMove(bm[0],bm[1],bm[2],bm[3],"b");S.myTurn=true;updateTurnUI();
+    },350+Math.random()*450);
+  }
+}
+function updateTurnUI(){
+  const tb=el("turn-badge");if(!tb)return;
+  tb.textContent=S.myTurn?"◉ WHITE":"● BLACK";tb.className="turn-badge "+(S.myTurn?"white":"black");
+  el("pcard-me").className="pcard "+(S.myTurn?"myturn":"idle");
+  el("pcard-opp").className="pcard "+(!S.myTurn?"oppturn":"idle");
+}
+function updateMoveLog(){
+  const inner=el("move-log-inner");if(!inner)return;
+  if(!S.moveLog.length){inner.innerHTML=`<div style="font-size:.6rem;color:var(--mu)">Waiting...</div>`;return;}
+  inner.innerHTML=S.moveLog.map(m=>`<div class="move-entry"><span class="move-num">${m.n}.</span><span class="move-w">${m.w}</span><span style="color:var(--mu)">${m.b}</span></div>`).join("");
+  inner.scrollTop=inner.scrollHeight;
+}
+
+/* ═══ GAME START ═══ */
+function startGame(){
+  const mode=MODES[S.modeIdx];
+  S.board=newBoard();S.sel=null;S.hints=[];S.lastMv=null;
+  S.myTurn=true;S.done=false;
+  S.pool=parseFloat((S.stake*2).toFixed(8));
+  S.moveLog=[];S.moveNum=0;S.myTime=mode.dur;S.oppTime=mode.dur;
+  S.myCaptures=0;S.oppCaptures=0;S.myMoves=0;S.oppMoves=0;
+  S.tMatchCount++;
+
+  const pps=computePPS(S.profile);S.profile.pps=pps;
+  const tier=ppsTier(pps);
+  const pfee=parseFloat((S.pool*PLATFORM_FEE).toFixed(8));
+
+  setText("opp-name","Bot-"+S.oppElo);
+  setText("opp-elo","ELO "+S.oppElo);
+  setText("my-elo","ELO "+S.elo);
+  setText("game-match-id",S.matchId);
+  setText("board-stake-lbl",f(S.stake,4)+" SOL entry");
+  setText("board-mode-lbl",mode.name);
+  setText("onchain-stake",f(S.stake,4)+" SOL");
+  setText("timer-me",clk(mode.dur));
+  setText("timer-opp",clk(mode.dur));
+  setText("live-pool",f(S.pool,5)+" SOL");
+  setText("live-pool-usd",usd(S.pool));
+  setText("game-mult",S.mult.toFixed(2)+"×");
+  if(el("yield-flash-el")) el("yield-flash-el").className="yield-flash hidden";
+  if(el("move-log-inner")) el("move-log-inner").innerHTML=`<div style="font-size:.6rem;color:var(--mu)">Waiting...</div>`;
+  const liveNote=document.querySelector(".yield-live-note");
+  if(liveNote)liveNote.textContent=`${tier.icon} PPS ${pps.toFixed(2)} · instant + epoch yield`;
+  updateTurnUI();renderBoard();showScreen("sc-game");refreshGameNav();
+  const es=getEpochState();
+  toast(`♟ ${tier.icon}${tier.name} · Epoch in ${epochCountdownStr(es.msLeft)}`,"ok");
+
+  // Clock
+  clearInterval(S.clockI);
+  S.clockI=setInterval(()=>{
+    if(S.done){clearInterval(S.clockI);return;}
+    if(S.myTurn){
+      S.myTime=Math.max(0,S.myTime-1);
+      const t=el("timer-me");if(t){t.textContent=clk(S.myTime);t.className="pcard-timer"+(S.myTime<15?" low":"");}
+      if(S.myTime===0){const res=resolveTimeout("mine");endGame(res.outcome,res.reason);}
+    } else {
+      S.oppTime=Math.max(0,S.oppTime-1);
+      const t=el("timer-opp");if(t){t.textContent=clk(S.oppTime);t.className="pcard-timer"+(S.oppTime<15?" low":"");}
+      if(S.oppTime===0){const res=resolveTimeout("opp");endGame(res.outcome,res.reason);}
+    }
+  },1000);
+}
+
+/* ═══ END GAME ═══ */
+function endGame(type,reason){
+  if(S.done)return;
+  S.done=true;clearInterval(S.clockI);clearTimeout(S.botTmr);
+  const pool=S.pool,pfee=parseFloat((pool*PLATFORM_FEE).toFixed(8)),remaining=parseFloat((pool-pfee).toFixed(8));
+  const prevMult=S.mult,prevElo=S.elo,prevBal=S.bal,prevErn=S.earned,prevStr=S.streak,entry=S.stake;
+  const mode=MODES[S.modeIdx],ppsNow=computePPS(S.profile);
+  let winPct,losePct,poolMe;
+  if(type==="win"){winPct=rnd(0.70,0.80);losePct=1-winPct;poolMe=parseFloat((remaining*winPct).toFixed(8));}
+  else if(type==="loss"){winPct=rnd(0.70,0.80);losePct=1-winPct;poolMe=parseFloat((remaining*losePct).toFixed(8));}
+  else{winPct=0.5;losePct=0.5;poolMe=parseFloat((remaining*0.5).toFixed(8));}
+  const sk=computeSkillScores(type);
+  const instantYield=computeInstantYield({skillScore:sk.scoreMe,pps:ppsNow,modeWeight:mode.weight,type,myElo:S.elo,oppElo:S.oppElo,entry});
+  const epochPts=computeEpochPoints({skillScore:sk.scoreMe,pps:ppsNow,modeWeight:mode.weight,type,myElo:S.elo,oppElo:S.oppElo});
+  const otherPts=epochPts*(ASSUMED_DAILY*0.9);
+  S.epoch.pendingPoints=parseFloat(((S.epoch.pendingPoints||0)+epochPts).toFixed(8));
+  S.epoch.totalEpochPoints=parseFloat(((S.epoch.totalEpochPoints||0)+epochPts+otherPts).toFixed(8));
+  S.epoch.epochMatchCount=(S.epoch.epochMatchCount||0)+1;
+  const isUpset=type==="win"&&S.oppElo>S.elo+50;
+  const payoutMe=parseFloat((poolMe+instantYield).toFixed(8));
+  const newBal=parseFloat((prevBal+payoutMe).toFixed(8));
+  const netChange=parseFloat((payoutMe-entry).toFixed(8));
+  const newErn=parseFloat((prevErn+netChange).toFixed(8));
+  let newMult,newStreak,eloChg,newElo;
+  if(type==="win"){newMult=parseFloat(Math.min(3.0,prevMult+0.15+(prevStr>=2?0.05:0)).toFixed(2));newStreak=prevStr+1;eloChg=ri(8,18);newElo=prevElo+eloChg;showFlash("win");}
+  else if(type==="loss"){newMult=parseFloat(Math.max(0.5,prevMult-0.10).toFixed(2));newStreak=0;eloChg=-ri(5,14);newElo=Math.max(100,prevElo+eloChg);showFlash("loss");}
+  else{newMult=prevMult;newStreak=0;eloChg=0;newElo=prevElo;showFlash("win");}
+  S.profile.totalGames=(S.profile.totalGames||0)+1;S.profile.elo=newElo;
+  if(type==="win")S.profile.wins=(S.profile.wins||0)+1;
+  if(type==="win"&&isUpset)S.profile.upsetWins=(S.profile.upsetWins||0)+1;
+  S.profile.peakStreak=Math.max(S.profile.peakStreak||0,newStreak);
+  updateProfileAccuracy(sk.accMe);
+  const today=new Date().toDateString();
+  if(S.profile.lastActiveDay!==today){S.profile.daysActive=(S.profile.daysActive||1)+1;S.profile.lastActiveDay=today;}
+  if(!S.profile.firstGameDay)S.profile.firstGameDay=today;
+  const ms2=new Date()-new Date(S.profile.firstGameDay||new Date());
+  S.profile.daysSinceFirst=Math.max(1,Math.ceil(ms2/86400000));
+  S.profile.modesPlayed.add(MODES[S.modeIdx].id);
+  const ppsAfter=computePPS(S.profile);S.profile.pps=ppsAfter;
+  const ppsGain=parseFloat((ppsAfter-ppsNow).toFixed(4));
+  S.profile.ppsHistory=S.profile.ppsHistory||[];
+  S.profile.ppsHistory.push({game:S.profile.totalGames,pps:ppsAfter});
+  S.bal=newBal;S.earned=newErn;S.mult=newMult;S.streak=newStreak;S.elo=newElo;
+  if(type==="win")S.wins++;if(type==="loss")S.losses++;if(type==="draw")S.draws++;
+  S.hist.unshift({type,opp:"Bot-"+S.oppElo,earned:netChange,pool,pfee,remaining,poolMe,instantYield,epochPts,payoutMe,winPct,losePct,mult:prevMult,newMult,elo:newElo,eloChg,stake:entry,bal:newBal,cumErn:newErn,pps:ppsAfter,ppsGain,date:new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})});
+  if(S.hist.length>50)S.hist.pop();
+  saveGame();
+  buildResult({type,pool,pfee,remaining,poolMe,instantYield,epochPts,payoutMe,netChange,winPct,losePct,prevMult,newMult,entry,eloChg,newElo,newStreak,newBal,newErn,sk,mode,isUpset,ppsNow,ppsAfter,ppsGain,reason});
+  setTimeout(()=>showScreen("sc-result"),900);
+}
+
+function showFlash(type){
+  const fl=el("yield-flash-el");if(!fl)return;
+  fl.className="yield-flash";fl.textContent=type==="win"?"+":"−";
+  fl.style.color=type==="win"?"var(--gn)":"var(--rd)";fl.style.background=type==="win"?"rgba(0,229,160,.06)":"rgba(255,51,85,.06)";
+  setTimeout(()=>{fl.className="yield-flash hidden";},2100);
+}
+
+function buildResult({type,pool,pfee,remaining,poolMe,instantYield,epochPts,payoutMe,netChange,winPct,losePct,prevMult,newMult,entry,eloChg,newElo,newStreak,newBal,newErn,sk,mode,isUpset,ppsNow,ppsAfter,ppsGain,reason}){
+  const isW=type==="win",isL=type==="loss",gc=isW?"var(--gn)":isL?"var(--rd)":"var(--go)";
+  const tier=ppsTier(ppsAfter);
+  const iw=el("result-icon-wrap");
+  if(iw){iw.style.background=`radial-gradient(circle,${gc}18,transparent)`;iw.style.border=`1px solid ${gc}44`;iw.style.boxShadow=`0 0 45px ${gc}20`;}
+  setText("result-icon",isW?"🏆":isL?"💀":"🤝");
+  setText("result-title",isW?"VICTORY":isL?"DEFEATED":"DRAW");
+  if(el("result-title")) el("result-title").style.color=gc;
+  const reasonLabel=reason==="timeout-position"?" · Board evaluated at timeout":reason==="timeout-draw"?" · Board too close — Draw":reason==="checkmate"?" · Checkmate":reason==="resign"?" · Resignation":"";
+  setText("result-desc",isW?`${tier.icon} PPS ${ppsAfter.toFixed(2)} · Pool ${(winPct*100).toFixed(0)}% + instant yield.${isUpset?" 🔥 Upset!":""}${reasonLabel}`:isL?`${tier.icon} PPS ${ppsAfter.toFixed(2)} · ${(losePct*100).toFixed(0)}% pool back + instant yield.${reasonLabel}`:`${tier.icon} PPS ${ppsAfter.toFixed(2)} · 50/50 pool + instant yield.${reasonLabel}`);
+  setText("r-principal",f(entry,4)+" SOL entry paid");
+  setText("r-pool",f(pool,5)+" SOL"); setText("r-pool-usd",usd(pool));
+  setText("r-mult",prevMult.toFixed(2)+"× streak");
+  setText("r-fee","−"+f(pfee,6)+" SOL (0.5% → Jito)");
+  setText("r-earned-lbl",netChange>=0?"Net gain (instant)":"Net loss (instant)");
+  const es2=el("r-earned-sol"); if(es2){es2.textContent=(netChange>=0?"+":"")+f(netChange,5)+" SOL";es2.style.color=netChange>=0?"var(--gn)":"var(--rd)";}
+  const eu=el("r-earned-usd"); if(eu){eu.textContent=(netChange>=0?"+":"−")+"$"+Math.abs(netChange*SOL_PRICE).toFixed(2);eu.style.color=netChange>=0?"var(--gn)":"var(--rd)";}
+  const badge=el("mult-badge"),arrow=el("mult-arrow"),mNew=el("mult-new");
+  if(badge&&arrow&&mNew){
+    if(newMult>prevMult){badge.style.borderColor="var(--br)";arrow.textContent="▲";arrow.style.color="var(--gn)";mNew.style.color="var(--gn)";}
+    else if(newMult<prevMult){badge.style.borderColor="rgba(255,51,85,.25)";arrow.textContent="▼";arrow.style.color="var(--rd)";mNew.style.color="var(--rd)";}
+    else{arrow.textContent="—";arrow.style.color="var(--mu)";mNew.style.color="var(--mu)";}
+  }
+  setText("mult-old",prevMult.toFixed(2)+"×"); setText("mult-new",newMult.toFixed(2)+"×");
+  setText("r-elo",newElo+" ("+(eloChg>=0?"+":"")+eloChg+") "+tier.icon);
+  if(el("r-elo")) el("r-elo").style.color=eloChg>=0?"var(--gn)":"var(--rd)";
+  setText("r-streak",newStreak+(newStreak>=3?" 🔥":""));
+  setText("r-bal",f(newBal,4)+" SOL"); setText("r-bal-usd",usd(newBal));
+  setText("r-total-yield",(newErn>=0?"+":"")+f(newErn,5)+" SOL");
+  setText("r-total-yield-usd",(newErn>=0?"":"−")+"$"+Math.abs(newErn*SOL_PRICE).toFixed(2));
+  setText("r-epoch-pts","+"+f(epochPts,6)+" pts");
+  const es=getEpochState();
+  setText("r-epoch-cd","settles in "+epochCountdownStr(es.msLeft));
+  if(el("sc-result")) el("sc-result").style.backgroundImage=`radial-gradient(ellipse 60% 50% at 50% 30%,${isW?"rgba(0,229,160,.06)":isL?"rgba(255,51,85,.06)":"rgba(240,184,64,.05)"} 0%,transparent 70%)`;
+}
+
+/* ═══ GAME ACTIONS ═══ */
+function offerDraw(){if(Math.random()<0.45){toast("Draw accepted ✓","ok");setTimeout(()=>endGame("draw","agreed"),300);}else toast("Opponent declined","info");}
+function resign(){toast("You resigned","err");setTimeout(()=>endGame("loss","resign"),300);}
+function debugEnd(type){endGame(type,"debug");}
+function goHomeFromGame(){S.done=true;clearInterval(S.clockI);clearTimeout(S.botTmr);refreshLobby();showScreen("sc-lobby");}
+function goHome(){refreshLobby();showScreen("sc-lobby");}
+function playAgain(){refreshLobby();showScreen("sc-lobby");}
+function resetProgress(){
+  if(!confirm("Reset all progress?"))return;
+  nukeGame();
+  S.bal=1.0;S.elo=1200;S.wins=0;S.losses=0;S.draws=0;S.streak=0;S.mult=1.0;S.earned=0;S.hist=[];
+  S.stake=0.02;S.tStaked=SEED_SOL;S.tFees=0;S.tYieldPaid=0;S.tMatchCount=0;
+  S.profile={elo:1200,wins:0,totalGames:0,avgAccuracy:0,peakStreak:0,upsetWins:0,daysActive:1,daysSinceFirst:1,modesPlayed:new Set(),tournamentWins:0,pps:0.50,ppsHistory:[]};
+  S.epoch={originTs:Date.now(),lastSettled:-1,pendingPoints:0,totalEpochPoints:0,pendingInstant:0,totalEarned:0,lastHarvest:0,lastPayout:0,history:[],epochMatchCount:0};
+  T.staked=SEED_SOL;
+  refreshLobby();toast("Progress reset","info");
+}
+
+/* ═══ INIT ═══ */
+(function init(){
+  showScreen("sc-login");
+})();
+</script>
+</body>
+</html>
